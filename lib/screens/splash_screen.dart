@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../env.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -31,8 +30,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<bool> _authenticate() async {
-    // Use AuthService for local auth
-    return AuthService().authenticateWithBiometricsOrPin();
+    // Authentication disabled for simplified deployment
+    return true;
   }
 
   @override

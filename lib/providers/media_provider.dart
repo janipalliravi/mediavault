@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import '../models/media_item.dart';
 import '../services/database_service.dart';
-import '../services/sync_service.dart';
 import '../services/backup_service.dart';
 import 'settings_provider.dart';
 
 class MediaProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
-  FirebaseAuth? _auth;
-  SyncService? _sync;
   // Settings reference is not directly available here; BackupService takes settings as arg.
   // Provide a default settings snapshot for auto-backup best-effort.
   final SettingsProvider contextSettings = SettingsProvider();
@@ -37,11 +32,7 @@ class MediaProvider with ChangeNotifier {
   }
 
   MediaProvider() {
-    // Initialize Firebase-dependent services only if Firebase is configured
-    if (Firebase.apps.isNotEmpty) {
-      _auth = FirebaseAuth.instance;
-      _sync = SyncService();
-    }
+    // Firebase services disabled for simplified deployment
   }
 
   String _normalizeStatusLabel(String status) {
@@ -65,16 +56,7 @@ class MediaProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _ensureSignedIn() async {
-    if (_auth == null) return;
-    try {
-      if (_auth!.currentUser == null) {
-        await _auth!.signInAnonymously();
-      }
-    } catch (e) {
-      debugPrint('Anonymous sign-in failed: $e');
-    }
-  }
+
 
   List<MediaItem> get items => _filteredItems();
   String get currentCategory => _currentCategory;
@@ -347,80 +329,7 @@ class MediaProvider with ChangeNotifier {
       notifyListeners();
       _invalidateCache();
 
-      // Cloud merge if signed in and Firebase is available
-      await _ensureSignedIn();
-      final uid = _auth?.currentUser?.uid;
-      if (uid != null && _sync != null) {
-        final cloudItems = await _sync!.pullAll(uid);
-        final Map<int, MediaItem> localById = {
-          for (final it in _items) if (it.id != null) it.id!: it
-        };
-        final Map<int, MediaItem> cloudById = {
-          for (final it in cloudItems) if (it.id != null) it.id!: it
-        };
-
-        // Merge logic: last-writer-wins by updatedAt
-        for (final entry in cloudById.entries) {
-          final id = entry.key;
-          final cloud = entry.value;
-          final local = localById[id];
-          if (local == null) {
-            // New in cloud → bring local
-            await _databaseService.insertItem(cloud);
-          } else {
-            final localTs = local.updatedAt ?? local.addedDate;
-            final cloudTs = cloud.updatedAt ?? cloud.addedDate;
-            if (cloudTs != null && (localTs == null || cloudTs.isAfter(localTs))) {
-              // Cloud is newer → update local
-              await _databaseService.updateItem(cloud.copyWith(id: id));
-            } else if (localTs != null && (cloudTs == null || localTs.isAfter(cloudTs))) {
-              // Local is newer → push local to cloud
-              await _sync!.pushItem(uid, local);
-            } else if (localTs != null && cloudTs != null && localTs.isAtSameMomentAs(cloudTs)) {
-              // Same timestamp: perform simple field-level merge
-              final merged = local.copyWith(
-                // Keep local notes, but take cloud rating/favorite if different
-                rating: cloud.rating ?? local.rating,
-                favorite: (local.favorite || cloud.favorite),
-                // Merge images list union
-                images: {
-                  ...?local.images,
-                  ...?cloud.images,
-                }.where((e) => e.trim().isNotEmpty).toList(),
-                // Merge extra shallow (prefer local on conflict)
-                extra: {
-                  ...?cloud.extra,
-                  ...?local.extra,
-                },
-              );
-              await _databaseService.updateItem(merged.copyWith(id: id));
-              await _sync!.pushItem(uid, merged);
-            }
-          }
-        }
-
-        // Local items missing in cloud → push
-        for (final entry in localById.entries) {
-          if (!cloudById.containsKey(entry.key)) {
-            await _sync!.pushItem(uid, entry.value);
-          }
-        }
-
-        _items = await _databaseService.getItems();
-        // Apply normalization again for any cloud-updated rows
-        _items = _items
-            .map((it) {
-              final ns = _normalizeStatusLabel(it.status);
-              final nt = _normalizeTypeLabel(it.type);
-              if (ns != it.status || nt != it.type) {
-                return it.copyWith(status: ns, type: nt);
-              }
-              return it;
-            })
-            .toList(growable: false);
-        _invalidateCache();
-        notifyListeners();
-      }
+      // Cloud sync disabled for simplified deployment
     } catch (e) {
       debugPrint('Error loading items: $e');
     }
@@ -451,9 +360,7 @@ class MediaProvider with ChangeNotifier {
       final saved = toSave.copyWith(id: id);
       _items.insert(0, saved);
       _invalidateCache();
-      await _ensureSignedIn();
-      final uid = _auth?.currentUser?.uid;
-      if (uid != null && _sync != null) await _sync!.pushItem(uid, saved);
+      // Cloud sync disabled for simplified deployment
       notifyListeners();
       // Fire-and-forget auto backup
       // Auto backup is best-effort; run via service that reads settings internally
@@ -480,9 +387,7 @@ class MediaProvider with ChangeNotifier {
         await loadItems();
       }
       _invalidateCache();
-      await _ensureSignedIn();
-      final uid = _auth?.currentUser?.uid;
-      if (uid != null && _sync != null) await _sync!.pushItem(uid, updated);
+      // Cloud sync disabled for simplified deployment
       notifyListeners();
       try { await BackupService().writeAutoBackup(); } catch (_) {}
     } catch (e) {
@@ -494,9 +399,7 @@ class MediaProvider with ChangeNotifier {
     try {
       await _databaseService.deleteItem(id);
       _items.removeWhere((e) => e.id == id);
-      await _ensureSignedIn();
-      final uid = _auth?.currentUser?.uid;
-      if (uid != null && _sync != null) await _sync!.deleteItem(uid, id);
+      // Cloud sync disabled for simplified deployment
       _invalidateCache();
       notifyListeners();
       try { await BackupService().writeAutoBackup(); } catch (_) {}

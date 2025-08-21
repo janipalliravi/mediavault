@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:shared_preferences/shared_preferences.dart';

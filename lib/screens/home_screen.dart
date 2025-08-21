@@ -45,10 +45,10 @@ class _HomeScreenState extends State<HomeScreen>
       if (!AppEnv.testMode) {
         await Future.delayed(const Duration(milliseconds: 150));
       }
-      // Defer heavy I/O a bit more to avoid first-frame jank; do not use context after awaiting
+      // Capture context before async operations
+      if (!mounted) return;
       final mp = Provider.of<MediaProvider>(context, listen: false);
       final defaultGrid = context.read<SettingsProvider>().defaultGridView;
-      if (!mounted) return;
       if (!AppEnv.testMode) {
         Future.microtask(() => mp.warmStart());
       }
