@@ -1,0 +1,27 @@
+# Tell GitHub to ignore generated files for language detection
+*.html linguist-generated=true
+*.css linguist-generated=true
+*.js linguist-generated=true
+*.json linguist-generated=true
+*.xml linguist-generated=true
+*.gradle linguist-generated=true
+*.kt linguist-generated=true
+*.swift linguist-generated=true
+*.m linguist-generated=true
+*.h linguist-generated=true
+*.cpp linguist-generated=true
+*.cmake linguist-generated=true
+
+# Focus on Dart source code
+*.dart linguist-language=Dart
+*.dart linguist-detectable=true
+
+# Mark build directories as generated
+build/ linguist-generated=true
+android/build/ linguist-generated=true
+ios/build/ linguist-generated=true
+web/build/ linguist-generated=true
+
+# Mark documentation as documentation
+*.md linguist-documentation=true
+*.txt linguist-documentation=true
