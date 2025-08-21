@@ -45,5 +45,23 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Camera and Photo Library Permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>MediaVault needs camera access to take photos for your media items.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MediaVault needs photo library access to select images for your media items.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MediaVault needs permission to save images to your photo library.</string>
+	
+	<!-- File Access Permissions -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	
+	<!-- Local Authentication -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>MediaVault uses Face ID to secure your data.</string>
 </dict>
 </plist>
