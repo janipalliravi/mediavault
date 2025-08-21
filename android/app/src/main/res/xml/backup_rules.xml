@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include app databases, prefs and files for auto backup/restore -->
+    <include domain="database" path="."/>
+    <include domain="sharedpref" path="."/>
+    <include domain="file" path="."/>
+    <!-- Caches are not included by default; no explicit exclude needed -->
+</full-backup-content>
+
+
