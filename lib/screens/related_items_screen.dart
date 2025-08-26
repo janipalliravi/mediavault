@@ -47,118 +47,37 @@ class RelatedItemsScreen extends StatelessWidget {
                 ],
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(gap),
-              itemCount: relatedGroups.length,
-              itemBuilder: (context, index) {
-                final List<MediaItem> group = relatedGroups[index];
-                final baseTitle = mp.normalizeTitle(group.first.title);
-                final type = group.first.type;
-                
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header with title and type
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: gap, vertical: gap),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  baseTitle,
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  '$type • ${group.length} seasons/parts',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              '${group.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                                         // Related items in list view
-                     ...group.map((item) => Padding(
-                       padding: const EdgeInsets.symmetric(horizontal: gap, vertical: 1),
-                       child: Row(
-                         children: [
-                           // Season indicator
-                           Container(
-                             width: 24,
-                             height: 24,
-                             decoration: BoxDecoration(
-                               color: Theme.of(context).colorScheme.primary,
-                               shape: BoxShape.circle,
-                             ),
-                             child: Center(
-                               child: Text(
-                                 _getSeasonDisplay(item),
-                                 style: const TextStyle(
-                                   color: Colors.white,
-                                   fontWeight: FontWeight.bold,
-                                   fontSize: 9,
-                                 ),
-                               ),
-                             ),
-                           ),
-                           
-                           const SizedBox(width: 6),
-                           
-                           // Item card
-                           Expanded(
-                             child: MediaCard(
-                               item: item,
-                               isGrid: false,
-                               onTap: () => Navigator.push(
-                                 context,
-                                 PageRouteBuilder(
-                                   pageBuilder: (_, __, ___) => DetailsScreen(item: item),
-                                   transitionsBuilder: (_, animation, __, child) => 
-                                       FadeTransition(opacity: animation, child: child),
-                                   transitionDuration: const Duration(milliseconds: 250),
-                                 ),
-                               ),
-                             ),
-                           ),
-                         ],
+                     : ListView.builder(
+               padding: const EdgeInsets.all(gap),
+               itemCount: _getAllRelatedItems(relatedGroups).length,
+               itemBuilder: (context, index) {
+                 final item = _getAllRelatedItems(relatedGroups)[index];
+                 return RepaintBoundary(
+                   child: MediaCard(
+                     item: item,
+                     isGrid: false,
+                     onTap: () => Navigator.push(
+                       context,
+                       PageRouteBuilder(
+                         pageBuilder: (_, __, ___) => DetailsScreen(item: item),
+                         transitionsBuilder: (_, animation, __, child) => 
+                             FadeTransition(opacity: animation, child: child),
+                         transitionDuration: const Duration(milliseconds: 250),
                        ),
-                     )),
-                    
-                    // Separator between groups
-                    if (index < relatedGroups.length - 1)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: gap),
-                        child: Divider(height: 1, color: Colors.grey[300]),
-                      ),
-                  ],
-                );
-              },
-            ),
+                     ),
+                   ),
+                 );
+               },
+             ),
     );
+  }
+
+  List<MediaItem> _getAllRelatedItems(List<List<MediaItem>> relatedGroups) {
+    List<MediaItem> allItems = [];
+    for (final group in relatedGroups) {
+      allItems.addAll(group);
+    }
+    return allItems;
   }
 
   String _getSeasonDisplay(MediaItem item) {
