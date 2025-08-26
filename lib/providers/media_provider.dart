@@ -373,17 +373,24 @@ class MediaProvider with ChangeNotifier {
         // Items are duplicates if they have the same title, year, type, AND season
         final isDuplicate = titlesMatch && yearsMatch && typesMatch && seasonsMatch;
         
+        // Enhanced debug logging for all items being checked
+        debugPrint('Checking against: "${e.title}" -> baseTitle: "$existingBaseTitle", seasonKey: "$existingSeasonKey"');
+        debugPrint('  titlesMatch: $titlesMatch, yearsMatch: $yearsMatch, typesMatch: $typesMatch, seasonsMatch: $seasonsMatch');
+        debugPrint('  isDuplicate: $isDuplicate');
+        
         if (isDuplicate) {
-          debugPrint('Found duplicate: "${e.title}" -> baseTitle: "$existingBaseTitle", seasonKey: "$existingSeasonKey"');
-          debugPrint('  titlesMatch: $titlesMatch, yearsMatch: $yearsMatch, typesMatch: $typesMatch, seasonsMatch: $seasonsMatch');
+          debugPrint('*** DUPLICATE FOUND ***');
         }
         
         return isDuplicate;
       });
       
       if (exists) {
+        debugPrint('*** DUPLICATE DETECTED - THROWING EXCEPTION ***');
         throw Exception('Duplicate exists for same title, year, type, and season');
       }
+      
+      debugPrint('*** NO DUPLICATE FOUND - PROCEEDING WITH SAVE ***');
       final id = await _databaseService.insertItem(toSave);
       final saved = toSave.copyWith(id: id);
       _items.insert(0, saved);
@@ -875,7 +882,9 @@ class MediaProvider with ChangeNotifier {
     if (item.extra != null) {
       final seasons = item.extra!['seasons']?.toString();
       if (seasons != null && seasons.trim().isNotEmpty) {
-        return seasons.trim();
+        final seasonValue = seasons.trim();
+        debugPrint('Found season in extra data: "$seasonValue" for item "${item.title}"');
+        return seasonValue;
       }
     }
     
@@ -900,12 +909,14 @@ class MediaProvider with ChangeNotifier {
       if (match != null) {
         final seasonNumber = match.group(1) ?? '';
         if (seasonNumber.isNotEmpty) {
+          debugPrint('Found season in title: "$seasonNumber" for item "${item.title}"');
           return seasonNumber;
         }
       }
     }
     
     // If no season found, return empty string (indicating no season)
+    debugPrint('No season found for item "${item.title}"');
     return '';
   }
 
