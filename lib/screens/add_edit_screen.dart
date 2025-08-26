@@ -266,26 +266,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
     final provider = context.read<MediaProvider>();
 
-    // Prevent duplicate titles (case-insensitive). If editing, ignore the current item's id.
-    final proposedTitle = _titleCtrl.text.trim();
-    final isDuplicate = provider.titleExists(proposedTitle, ignoreId: widget.item?.id, type: _normalizedType(_type));
-    if (isDuplicate) {
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Duplicate Title'),
-          content: Text('An item with the title "$proposedTitle" already exists.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
+    // Note: We don't check for duplicates here anymore since the addItem method
+    // now handles season-aware duplicate detection. This allows items with
+    // the same title but different seasons to be added.
 
     final releaseYear = _releaseYearCtrl.text.trim().isEmpty ? null : int.parse(_releaseYearCtrl.text.trim());
     final watchedYear = _watchedYearCtrl.text.trim().isEmpty ? null : int.parse(_watchedYearCtrl.text.trim());
