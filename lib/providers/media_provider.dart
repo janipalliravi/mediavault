@@ -348,13 +348,22 @@ class MediaProvider with ChangeNotifier {
     try {
       final now = DateTime.now();
       final toSave = item.copyWith(addedDate: item.addedDate ?? now, updatedAt: now);
-      // Prevent duplicate merge across different types (e.g., Anime vs Movies)
-      final exists = _items.any((e) =>
-          e.title.trim().toLowerCase() == item.title.trim().toLowerCase() &&
-          (e.releaseYear ?? -1) == (item.releaseYear ?? -1) &&
-          e.type == item.type);
+      // Smart duplicate check that considers seasons as different items
+      final baseTitle = normalizeTitle(item.title);
+      final itemSeasonKey = _getSeasonKey(item);
+      
+      final exists = _items.any((e) {
+        final existingBaseTitle = normalizeTitle(e.title);
+        final existingSeasonKey = _getSeasonKey(e);
+        
+        return existingBaseTitle == baseTitle &&
+               (e.releaseYear ?? -1) == (item.releaseYear ?? -1) &&
+               e.type == item.type &&
+               existingSeasonKey == itemSeasonKey;
+      });
+      
       if (exists) {
-        throw Exception('Duplicate exists for same type and year');
+        throw Exception('Duplicate exists for same title, year, type, and season');
       }
       final id = await _databaseService.insertItem(toSave);
       final saved = toSave.copyWith(id: id);
