@@ -352,14 +352,22 @@ class MediaProvider with ChangeNotifier {
       final baseTitle = normalizeTitle(item.title);
       final itemSeasonKey = _getSeasonKey(item);
       
+      debugPrint('Adding item: "${item.title}" -> baseTitle: "$baseTitle", seasonKey: "$itemSeasonKey"');
+      
       final exists = _items.any((e) {
         final existingBaseTitle = normalizeTitle(e.title);
         final existingSeasonKey = _getSeasonKey(e);
         
-        return existingBaseTitle == baseTitle &&
+        final isDuplicate = existingBaseTitle == baseTitle &&
                (e.releaseYear ?? -1) == (item.releaseYear ?? -1) &&
                e.type == item.type &&
                existingSeasonKey == itemSeasonKey;
+        
+        if (isDuplicate) {
+          debugPrint('Found duplicate: "${e.title}" -> baseTitle: "$existingBaseTitle", seasonKey: "$existingSeasonKey"');
+        }
+        
+        return isDuplicate;
       });
       
       if (exists) {
@@ -868,6 +876,10 @@ class MediaProvider with ChangeNotifier {
       RegExp(r'part\s*(\d+)', caseSensitive: false),
       RegExp(r'volume\s*(\d+)', caseSensitive: false),
       RegExp(r'vol\.?\s*(\d+)', caseSensitive: false),
+      RegExp(r'season\s*(\d+)', caseSensitive: false),
+      RegExp(r'(\d+)\s*season', caseSensitive: false),
+      RegExp(r'(\d+)\s*part', caseSensitive: false),
+      RegExp(r'(\d+)\s*volume', caseSensitive: false),
     ];
     
     for (final pattern in seasonPatterns) {
@@ -903,6 +915,9 @@ class MediaProvider with ChangeNotifier {
       RegExp(r'\s*part\s*\d+.*', caseSensitive: false),
       RegExp(r'\s*volume\s*\d+.*', caseSensitive: false),
       RegExp(r'\s*vol\.?\s*\d+.*', caseSensitive: false),
+      RegExp(r'\s*\d+\s*season.*', caseSensitive: false),
+      RegExp(r'\s*\d+\s*part.*', caseSensitive: false),
+      RegExp(r'\s*\d+\s*volume.*', caseSensitive: false),
     ];
     
     String result = normalized;
