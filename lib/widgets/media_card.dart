@@ -116,13 +116,16 @@ class _MediaCardState extends State<MediaCard> {
         setState(() => _accent = cached);
         return;
       }
+      // Performance optimization: Skip palette computation for large lists
+      if (_paletteCache.length > 50) return; // Limit cache size
+      
       // Stagger computation slightly to avoid burst on first frame
-      await Future.delayed(Duration(milliseconds: 120 + (widget.hashCode % 120)));
+      await Future.delayed(Duration(milliseconds: 200 + (widget.hashCode % 200)));
       PaletteGenerator gen;
       if (imgPath.startsWith('http')) {
-        gen = await PaletteGenerator.fromImageProvider(NetworkImage(imgPath), maximumColorCount: 4);
+        gen = await PaletteGenerator.fromImageProvider(NetworkImage(imgPath), maximumColorCount: 3);
       } else {
-        gen = await PaletteGenerator.fromImageProvider(FileImage(File(imgPath)), maximumColorCount: 4);
+        gen = await PaletteGenerator.fromImageProvider(FileImage(File(imgPath)), maximumColorCount: 3);
       }
       if (!mounted) return;
       final color = gen.dominantColor?.color;
@@ -209,24 +212,60 @@ class _MediaCardState extends State<MediaCard> {
                                 Positioned(
                                   top: 6,
                                   left: 6,
-                                  child: GestureDetector(
-                                    onTap: () async {
-                                      final mp = context.read<MediaProvider>();
-                                      final updated = widget.item.copyWith(favorite: !widget.item.favorite);
-                                      await mp.updateItem(updated);
-                                    },
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        shape: BoxShape.circle,
+                                  child: Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final mp = context.read<MediaProvider>();
+                                          final updated = widget.item.copyWith(favorite: !widget.item.favorite);
+                                          await mp.updateItem(updated);
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.3),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          padding: const EdgeInsets.all(4),
+                                          child: Icon(
+                                            widget.item.favorite ? Icons.favorite : Icons.favorite_border,
+                                            color: widget.item.favorite ? Colors.red : Colors.white,
+                                            size: 16,
+                                          ),
+                                        ),
                                       ),
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        widget.item.favorite ? Icons.favorite : Icons.favorite_border,
-                                        color: widget.item.favorite ? Colors.red : Colors.white,
-                                        size: 16,
+                                      const SizedBox(width: 4),
+                                      // Related items indicator
+                                      Consumer<MediaProvider>(
+                                        builder: (context, mp, _) {
+                                          final relatedGroups = mp.findRelatedItemGroups();
+                                          final hasRelated = relatedGroups.any((group) => 
+                                            group.any((item) => 
+                                              mp.normalizeTitle(item.title) == mp.normalizeTitle(widget.item.title) &&
+                                              item.type == widget.item.type &&
+                                              item.id != widget.item.id
+                                            )
+                                          );
+                                          
+                                          if (!hasRelated) return const SizedBox.shrink();
+                                          
+                                          return GestureDetector(
+                                            onTap: () => Navigator.of(context).pushNamed('/related'),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.withValues(alpha: 0.8),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              padding: const EdgeInsets.all(4),
+                                              child: const Icon(
+                                                Icons.link,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ),
                                 Positioned(
@@ -284,7 +323,7 @@ class _MediaCardState extends State<MediaCard> {
                                 Builder(builder: (context) {
                                   final bool isManga = widget.item.type == 'Anime' &&
                                       (widget.item.extra?['manga']?.toString().toLowerCase() == 'true');
-                                  final String displayType = isManga ? 'Manga' : widget.item.type;
+                                                                     final String displayType = isManga ? 'Manga' : (widget.item.type == 'Movies' ? 'Movie' : widget.item.type);
                                   final String statusLabel = widget.item.status == 'Completed'
                                       ? 'Done'
                                       : (widget.item.status == 'Plan to Watch' ? 'Watch list' : widget.item.status);
@@ -341,7 +380,8 @@ class _MediaCardState extends State<MediaCard> {
                     );
                   },
                 )
-              : Padding(
+              : Container(
+                  height: 120, // Fixed height for list view items
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: gap / 1.25),
                   child: InkWell(
                     onTap: widget.onTap,
@@ -380,6 +420,7 @@ class _MediaCardState extends State<MediaCard> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 softWrap: false,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                               if (widget.item.rating != null)
                                 Padding(
@@ -402,10 +443,10 @@ class _MediaCardState extends State<MediaCard> {
                                 children: [
                                   _buildPill(
                                     context,
-                                    (widget.item.type == 'Anime' &&
-                                            (widget.item.extra?['manga']?.toString().toLowerCase() == 'true'))
-                                        ? 'Manga'
-                                        : widget.item.type,
+                                                                         (widget.item.type == 'Anime' &&
+                                             (widget.item.extra?['manga']?.toString().toLowerCase() == 'true'))
+                                         ? 'Manga'
+                                         : (widget.item.type == 'Movies' ? 'Movie' : widget.item.type),
                                   ),
                                   _buildPill(
                                     context,

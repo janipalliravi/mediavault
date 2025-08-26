@@ -9,13 +9,13 @@ import 'theme/app_theme.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/duplicates_screen.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'screens/related_items_screen.dart';
 import 'screens/stats_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Avoid runtime font fetching in debug which can slow first frame
-  GoogleFonts.config.allowRuntimeFetching = false;
+
   final mediaProvider = MediaProvider();
   runApp(
     MultiProvider(
@@ -72,6 +72,7 @@ class _MyAppState extends State<MyApp> {
         ),
         '/settings': (context) => const SettingsScreen(),
         '/duplicates': (context) => const DuplicatesScreen(),
+        '/related': (context) => const RelatedItemsScreen(),
         '/stats': (context) => const StatsScreen(),
       },
     );

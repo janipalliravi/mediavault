@@ -297,10 +297,16 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
+                            if (widget.item.type == 'Movies')
+                              _chip(context, 'Movie', Icons.movie),
                             if (widget.item.type == 'Series')
                               _chip(context, 'Series', Icons.live_tv),
                             if (widget.item.type == 'Anime' && (widget.item.extra?['manga']?.toString().toLowerCase() == 'true'))
                               _chip(context, 'Manga', Icons.bookmark),
+                            if (widget.item.type == 'Anime' && (widget.item.extra?['manga']?.toString().toLowerCase() != 'true'))
+                              _chip(context, 'Anime', Icons.animation),
+                            if (widget.item.type == 'K-Drama')
+                              _chip(context, 'K-Drama', Icons.tv),
                             if (widget.item.extra?['wsKind'] != null)
                               _chip(context, widget.item.extra!['wsKind'].toString(), Icons.tv),
                           ],

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:provider/provider.dart';
 import '../providers/media_provider.dart';
+import '../models/media_item.dart';
 import '../widgets/stats_card.dart';
 import '../constants/app_constants.dart';
 import '../widgets/search_filter.dart';
@@ -81,8 +82,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _maybeStartShuffle() {
     _shuffleTimer?.cancel();
-    final sp = context.mounted ? context.read<SettingsProvider>() : null;
-    if (sp == null) return;
+    if (!mounted) return;
+    final sp = context.read<SettingsProvider>();
     if (sp.shuffleCardsEnabled) {
       _shuffleTimer = Timer.periodic(const Duration(seconds: 20), (_) {
         if (!mounted) return;
@@ -101,7 +102,22 @@ class _HomeScreenState extends State<HomeScreen>
     final baseItems = selectedCategory == 'All'
         ? mediaProvider.items
         : mediaProvider.items.where((item) => item.type == selectedCategory).toList();
-    final filteredItems = List.of(baseItems)..shuffle(Random(_shuffleTick + selectedCategory.hashCode));
+    
+    // Sort alphabetically by title when shuffle is off, otherwise shuffle
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final List<MediaItem> filteredItems;
+    if (settingsProvider.shuffleCardsEnabled) {
+      filteredItems = List.of(baseItems)..shuffle(Random(_shuffleTick + selectedCategory.hashCode));
+    } else {
+      filteredItems = List.of(baseItems)
+        ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    }
+    
+    // Performance optimization: Limit items for very large lists
+    final int maxItemsToShow = 100; // Show max 100 items at once for smooth scrolling
+    final List<MediaItem> displayItems = filteredItems.length > maxItemsToShow 
+        ? filteredItems.take(maxItemsToShow).toList() 
+        : filteredItems;
 
     final Map<String, int> localStats = {
       'Total Items': filteredItems.length,
@@ -131,7 +147,8 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     return CustomScrollView(
-      cacheExtent: 1000,
+      cacheExtent: 2000, // Increased cache for smoother scrolling
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         const SliverToBoxAdapter(child: SizedBox(height: gap)),
         SliverPersistentHeader(
@@ -194,8 +211,9 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  return MediaCard(
-                    item: filteredItems[index],
+                  return RepaintBoundary(
+                    child: MediaCard(
+                      item: displayItems[index],
                     onLongPress: () async {
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
                       final confirm = await showDialog<bool>(
@@ -222,9 +240,10 @@ class _HomeScreenState extends State<HomeScreen>
                         transitionDuration: const Duration(milliseconds: 250),
                       ),
                     ),
-                  );
+                  ),
+                );
                 },
-                childCount: filteredItems.length,
+                childCount: displayItems.length,
               ),
             ),
           )
@@ -232,11 +251,12 @@ class _HomeScreenState extends State<HomeScreen>
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: gap),
             sliver: SliverList.builder(
-              itemCount: filteredItems.length,
+              itemCount: displayItems.length,
               itemBuilder: (context, index) {
-                return MediaCard(
-                  item: filteredItems[index],
-                  isGrid: false,
+                return RepaintBoundary(
+                  child: MediaCard(
+                    item: displayItems[index],
+                    isGrid: false,
                   onLongPress: () async {
                     final scaffoldMessenger = ScaffoldMessenger.of(context);
                     final confirm = await showDialog<bool>(
@@ -263,8 +283,25 @@ class _HomeScreenState extends State<HomeScreen>
                       transitionDuration: const Duration(milliseconds: 250),
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
+            ),
+          ),
+        // Show indicator if more items are available
+        if (filteredItems.length > maxItemsToShow)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'Showing ${displayItems.length} of ${filteredItems.length} items',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ),
           ),
       ],
@@ -273,15 +310,24 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
-        ),
-      ),
-      child: Scaffold(
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        // Listen for shuffle setting changes and update timer accordingly
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _maybeStartShuffle();
+          }
+        });
+        
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
+            ),
+          ),
+          child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -331,11 +377,16 @@ class _HomeScreenState extends State<HomeScreen>
                   icon: const Icon(Icons.checklist),
                   onPressed: () => mp.toggleSelectionMode(true),
                 ),
-                IconButton(
-                  tooltip: 'Find duplicates',
-                  icon: const Icon(Icons.copy_all),
-                  onPressed: () => Navigator.of(context).pushNamed('/duplicates'),
-                ),
+                                 IconButton(
+                   tooltip: 'Find duplicates',
+                   icon: const Icon(Icons.copy_all),
+                   onPressed: () => Navigator.of(context).pushNamed('/duplicates'),
+                 ),
+                 IconButton(
+                   tooltip: 'Related items',
+                   icon: const Icon(Icons.link),
+                   onPressed: () => Navigator.of(context).pushNamed('/related'),
+                 ),
                 IconButton(
                   icon: const Icon(Icons.settings),
                   onPressed: () => Navigator.of(context).pushNamed('/settings'),
@@ -374,23 +425,25 @@ class _HomeScreenState extends State<HomeScreen>
             _KeepAlive(child: _buildBodyFor('Series')),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const AddEditScreen(),
-                fullscreenDialog: true,
-              ),
-            ).then((_) => setState(() {}));
-          },
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
+                 floatingActionButton: FloatingActionButton(
+           onPressed: () {
+             Navigator.push(
+               context,
+               MaterialPageRoute(
+                 builder: (_) => const AddEditScreen(),
+                 fullscreenDialog: true,
+               ),
+             ).then((_) => setState(() {}));
+           },
+           backgroundColor: Theme.of(context).colorScheme.primary,
+           child: const Icon(Icons.add, color: Colors.white),
+         ),
+       ),
+     );
+       },
+     );
+   }
+ }
 
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;

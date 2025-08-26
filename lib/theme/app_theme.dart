@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'spacing.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static ThemeData build({required bool dark, Color seed = const Color(0xFF1877F2), bool amoled = false, double fontScale = 1.0}) {
@@ -13,12 +12,12 @@ class AppTheme {
         brightness: Brightness.dark,
       );
       
-      final textTheme = GoogleFonts.poppinsTextTheme(darkBase.textTheme,).copyWith(
-        headlineSmall: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-        titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        titleMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        bodyLarge: GoogleFonts.poppins(),
-        bodyMedium: GoogleFonts.poppins(),
+      final textTheme = darkBase.textTheme.copyWith(
+        headlineSmall: darkBase.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        titleLarge: darkBase.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        titleMedium: darkBase.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        bodyLarge: darkBase.textTheme.bodyLarge,
+        bodyMedium: darkBase.textTheme.bodyMedium,
       );
       
       return darkBase.copyWith(
@@ -69,12 +68,12 @@ class AppTheme {
         brightness: Brightness.light,
       );
       
-      final textTheme = GoogleFonts.poppinsTextTheme(lightBase.textTheme).copyWith(
-        headlineSmall: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-        titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        titleMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        bodyLarge: GoogleFonts.poppins(),
-        bodyMedium: GoogleFonts.poppins(),
+      final textTheme = lightBase.textTheme.copyWith(
+        headlineSmall: lightBase.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        titleLarge: lightBase.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        titleMedium: lightBase.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        bodyLarge: lightBase.textTheme.bodyLarge,
+        bodyMedium: lightBase.textTheme.bodyMedium,
       );
       
       return lightBase.copyWith(

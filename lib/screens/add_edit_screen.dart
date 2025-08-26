@@ -447,7 +447,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                         .map((t) => DropdownMenuItem(
                       value: t, 
                       child: Text(
-                        t,
+                        t == 'Movies' ? 'Movie' : t,
                         style: TextStyle(
                           color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                           overflow: TextOverflow.ellipsis,

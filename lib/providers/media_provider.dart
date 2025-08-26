@@ -766,20 +766,142 @@ class MediaProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Duplicate finder (same title+year+type). Anime vs Movies are different types and won't be merged.
+  // Smart duplicate finder that considers seasons as different items
   List<List<MediaItem>> findDuplicateGroups() {
     final Map<String, List<MediaItem>> grouped = {};
     for (final it in _items) {
-      final key = '${it.title.trim().toLowerCase()}|${it.releaseYear ?? -1}|${it.type}';
+      // Extract season information from title or extra data
+      final baseTitle = normalizeTitle(it.title);
+      
+      // Create key that excludes season information for duplicate detection
+      final key = '$baseTitle|${it.releaseYear ?? -1}|${it.type}';
       grouped.putIfAbsent(key, () => []).add(it);
     }
-    final groups = grouped.values.where((g) => g.length > 1).map((g) {
-      g.sort((a, b) => (b.addedDate ?? DateTime.fromMillisecondsSinceEpoch(0))
-          .compareTo(a.addedDate ?? DateTime.fromMillisecondsSinceEpoch(0)));
-      return g;
-    }).toList();
-    groups.sort((a, b) => b.length.compareTo(a.length));
-    return groups;
+    
+    // Filter groups that are actual duplicates (same title, year, type, AND season)
+    final duplicateGroups = <List<MediaItem>>[];
+    for (final group in grouped.values) {
+      if (group.length > 1) {
+        // Check if items in group have different seasons
+        final seasonGroups = <String, List<MediaItem>>{};
+        for (final item in group) {
+          final seasonKey = _getSeasonKey(item);
+          seasonGroups.putIfAbsent(seasonKey, () => []).add(item);
+        }
+        
+        // Only consider as duplicates if same season has multiple items
+        for (final seasonGroup in seasonGroups.values) {
+          if (seasonGroup.length > 1) {
+            seasonGroup.sort((a, b) => (b.addedDate ?? DateTime.fromMillisecondsSinceEpoch(0))
+                .compareTo(a.addedDate ?? DateTime.fromMillisecondsSinceEpoch(0)));
+            duplicateGroups.add(seasonGroup);
+          }
+        }
+      }
+    }
+    
+    duplicateGroups.sort((a, b) => b.length.compareTo(a.length));
+    return duplicateGroups;
+  }
+
+  // Find related items (same title, different seasons)
+  List<List<MediaItem>> findRelatedItemGroups() {
+    final Map<String, List<MediaItem>> grouped = {};
+    for (final it in _items) {
+      final baseTitle = normalizeTitle(it.title);
+      final key = '$baseTitle|${it.type}';
+      grouped.putIfAbsent(key, () => []).add(it);
+    }
+    
+    final relatedGroups = <List<MediaItem>>[];
+    for (final group in grouped.values) {
+      if (group.length > 1) {
+        // Sort by season number if available, otherwise by release year
+        group.sort((a, b) {
+          final seasonA = _extractSeasonNumber(a);
+          final seasonB = _extractSeasonNumber(b);
+          
+          if (seasonA != null && seasonB != null) {
+            return seasonA.compareTo(seasonB);
+          } else if (seasonA != null) {
+            return -1; // Items with season come first
+          } else if (seasonB != null) {
+            return 1;
+          } else {
+            // Fallback to release year
+            final yearA = a.releaseYear ?? 0;
+            final yearB = b.releaseYear ?? 0;
+            return yearA.compareTo(yearB);
+          }
+        });
+        relatedGroups.add(group);
+      }
+    }
+    
+    return relatedGroups;
+  }
+
+  // Extract season information from title or extra data
+  String _extractSeasonInfo(MediaItem item) {
+    // Check extra data first
+    if (item.extra != null) {
+      final seasons = item.extra!['seasons']?.toString();
+      if (seasons != null && seasons.trim().isNotEmpty) {
+        return seasons.trim();
+      }
+    }
+    
+    // Check title for season patterns
+    final title = item.title.toLowerCase();
+    final seasonPatterns = [
+      RegExp(r'season\s*(\d+)', caseSensitive: false),
+      RegExp(r's(\d+)', caseSensitive: false),
+      RegExp(r'part\s*(\d+)', caseSensitive: false),
+      RegExp(r'volume\s*(\d+)', caseSensitive: false),
+      RegExp(r'vol\.?\s*(\d+)', caseSensitive: false),
+    ];
+    
+    for (final pattern in seasonPatterns) {
+      final match = pattern.firstMatch(title);
+      if (match != null) {
+        return match.group(1) ?? '';
+      }
+    }
+    
+    return '';
+  }
+
+  // Extract season number for sorting
+  int? _extractSeasonNumber(MediaItem item) {
+    final seasonInfo = _extractSeasonInfo(item);
+    if (seasonInfo.isEmpty) return null;
+    return int.tryParse(seasonInfo);
+  }
+
+  // Get season key for grouping
+  String _getSeasonKey(MediaItem item) {
+    return _extractSeasonInfo(item);
+  }
+
+  // Normalize title by removing season information
+  String normalizeTitle(String title) {
+    final normalized = title.trim().toLowerCase();
+    
+    // Remove season patterns from title for comparison
+    final seasonPatterns = [
+      RegExp(r'\s*season\s*\d+.*', caseSensitive: false),
+      RegExp(r'\s*s\d+.*', caseSensitive: false),
+      RegExp(r'\s*part\s*\d+.*', caseSensitive: false),
+      RegExp(r'\s*volume\s*\d+.*', caseSensitive: false),
+      RegExp(r'\s*vol\.?\s*\d+.*', caseSensitive: false),
+    ];
+    
+    String result = normalized;
+    for (final pattern in seasonPatterns) {
+      result = result.replaceAll(pattern, '');
+    }
+    
+    return result.trim();
   }
 
   // Delete all items in group except the first (newest)
