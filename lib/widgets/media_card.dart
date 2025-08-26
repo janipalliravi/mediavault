@@ -233,38 +233,7 @@ class _MediaCardState extends State<MediaCard> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      // Related items indicator
-                                      Consumer<MediaProvider>(
-                                        builder: (context, mp, _) {
-                                          final relatedGroups = mp.findRelatedItemGroups();
-                                          final hasRelated = relatedGroups.any((group) => 
-                                            group.any((item) => 
-                                              mp.normalizeTitle(item.title) == mp.normalizeTitle(widget.item.title) &&
-                                              item.type == widget.item.type &&
-                                              item.id != widget.item.id
-                                            )
-                                          );
-                                          
-                                          if (!hasRelated) return const SizedBox.shrink();
-                                          
-                                          return GestureDetector(
-                                            onTap: () => Navigator.of(context).pushNamed('/related'),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue.withValues(alpha: 0.8),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              padding: const EdgeInsets.all(4),
-                                              child: const Icon(
-                                                Icons.link,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                                                             const SizedBox(width: 4),
                                     ],
                                   ),
                                 ),
@@ -425,39 +394,7 @@ class _MediaCardState extends State<MediaCard> {
                                       softWrap: false,
                                       style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
-                                  ),
-                                  // Related items indicator for list view
-                                  Consumer<MediaProvider>(
-                                    builder: (context, mp, _) {
-                                      final relatedGroups = mp.findRelatedItemGroups();
-                                      final hasRelated = relatedGroups.any((group) => 
-                                        group.any((item) => 
-                                          mp.normalizeTitle(item.title) == mp.normalizeTitle(widget.item.title) &&
-                                          item.type == widget.item.type &&
-                                          item.id != widget.item.id
-                                        )
-                                      );
-                                      
-                                      if (!hasRelated) return const SizedBox.shrink();
-                                      
-                                      return GestureDetector(
-                                        onTap: () => Navigator.of(context).pushNamed('/related'),
-                                        child: Container(
-                                          margin: const EdgeInsets.only(left: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue.withValues(alpha: 0.8),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          padding: const EdgeInsets.all(4),
-                                          child: const Icon(
-                                            Icons.link,
-                                            color: Colors.white,
-                                            size: 14,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                                                     ),
                                 ],
                               ),
                               if (widget.item.rating != null)

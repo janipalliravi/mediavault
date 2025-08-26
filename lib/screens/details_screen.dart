@@ -108,6 +108,27 @@ class _DetailsScreenState extends State<DetailsScreen> {
               }
             },
           ),
+          // Related items indicator
+          Consumer<MediaProvider>(
+            builder: (context, mp, _) {
+              final relatedGroups = mp.findRelatedItemGroups();
+              final hasRelated = relatedGroups.any((group) => 
+                group.any((item) => 
+                  mp.normalizeTitle(item.title) == mp.normalizeTitle(widget.item.title) &&
+                  item.type == widget.item.type &&
+                  item.id != widget.item.id
+                )
+              );
+              
+              if (!hasRelated) return const SizedBox.shrink();
+              
+              return IconButton(
+                tooltip: 'Related Items',
+                icon: const Icon(Icons.link, color: Colors.white),
+                onPressed: () => Navigator.of(context).pushNamed('/related'),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Share',
             icon: const Icon(Icons.share),
