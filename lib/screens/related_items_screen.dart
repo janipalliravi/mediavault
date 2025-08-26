@@ -47,148 +47,117 @@ class RelatedItemsScreen extends StatelessWidget {
                 ],
               ),
             )
-          : ListView.separated(
+          : ListView.builder(
               padding: const EdgeInsets.all(gap),
               itemCount: relatedGroups.length,
-              separatorBuilder: (_, __) => const SizedBox(height: gap * 2),
               itemBuilder: (context, index) {
                 final List<MediaItem> group = relatedGroups[index];
                 final baseTitle = mp.normalizeTitle(group.first.title);
                 final type = group.first.type;
                 
-                return Card(
-                  elevation: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header with title and type
-                      Container(
-                        padding: const EdgeInsets.all(gap),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            topRight: Radius.circular(12),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header with title and type
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: gap, vertical: gap),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  baseTitle,
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '$type • ${group.length} seasons/parts',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    baseTitle,
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    '$type • ${group.length} seasons/parts',
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              '${group.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${group.length}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      
-                      // Related items with visual connections
-                      ...group.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final item = entry.value;
-                        final isLast = index == group.length - 1;
-                        
-                        return Column(
-                          children: [
-                            // Connection line (except for last item)
-                            if (!isLast)
-                              Container(
-                                height: 20,
-                                width: 2,
-                                margin: const EdgeInsets.only(left: 20),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                ),
-                              ),
-                            
-                            // Item card with season indicator
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: gap, vertical: gap / 2),
-                              child: Row(
-                                children: [
-                                  // Season indicator
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        _getSeasonDisplay(item),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(width: gap),
-                                  
-                                  // Item card
-                                  Expanded(
-                                    child: MediaCard(
-                                      item: item,
-                                      isGrid: false,
-                                      onTap: () => Navigator.push(
-                                        context,
-                                        PageRouteBuilder(
-                                          pageBuilder: (_, __, ___) => DetailsScreen(item: item),
-                                          transitionsBuilder: (_, animation, __, child) => 
-                                              FadeTransition(opacity: animation, child: child),
-                                          transitionDuration: const Duration(milliseconds: 250),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            
-                            // Connection line (except for last item)
-                            if (!isLast)
-                              Container(
-                                height: 20,
-                                width: 2,
-                                margin: const EdgeInsets.only(left: 20),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                ),
-                              ),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
+                    ),
+                    
+                                         // Related items in list view
+                     ...group.map((item) => Padding(
+                       padding: const EdgeInsets.symmetric(horizontal: gap, vertical: 2),
+                       child: SizedBox(
+                         height: 120, // Match the MediaCard height
+                         child: Row(
+                           children: [
+                             // Season indicator
+                             Container(
+                               width: 28,
+                               height: 28,
+                               decoration: BoxDecoration(
+                                 color: Theme.of(context).colorScheme.primary,
+                                 shape: BoxShape.circle,
+                               ),
+                               child: Center(
+                                 child: Text(
+                                   _getSeasonDisplay(item),
+                                   style: const TextStyle(
+                                     color: Colors.white,
+                                     fontWeight: FontWeight.bold,
+                                     fontSize: 10,
+                                   ),
+                                 ),
+                               ),
+                             ),
+                             
+                             const SizedBox(width: 8),
+                             
+                             // Item card
+                             Expanded(
+                               child: MediaCard(
+                                 item: item,
+                                 isGrid: false,
+                                 onTap: () => Navigator.push(
+                                   context,
+                                   PageRouteBuilder(
+                                     pageBuilder: (_, __, ___) => DetailsScreen(item: item),
+                                     transitionsBuilder: (_, animation, __, child) => 
+                                         FadeTransition(opacity: animation, child: child),
+                                     transitionDuration: const Duration(milliseconds: 250),
+                                   ),
+                                 ),
+                               ),
+                             ),
+                           ],
+                         ),
+                       ),
+                     )),
+                    
+                    // Separator between groups
+                    if (index < relatedGroups.length - 1)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: gap),
+                        child: Divider(height: 1, color: Colors.grey[300]),
+                      ),
+                  ],
                 );
               },
             ),
