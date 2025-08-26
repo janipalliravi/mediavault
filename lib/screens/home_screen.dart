@@ -382,11 +382,7 @@ class _HomeScreenState extends State<HomeScreen>
                    icon: const Icon(Icons.copy_all),
                    onPressed: () => Navigator.of(context).pushNamed('/duplicates'),
                  ),
-                 IconButton(
-                   tooltip: 'Related items',
-                   icon: const Icon(Icons.link),
-                   onPressed: () => Navigator.of(context).pushNamed('/related'),
-                 ),
+
                 IconButton(
                   icon: const Icon(Icons.settings),
                   onPressed: () => Navigator.of(context).pushNamed('/settings'),
