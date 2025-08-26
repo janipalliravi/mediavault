@@ -103,51 +103,48 @@ class RelatedItemsScreen extends StatelessWidget {
                     
                                          // Related items in list view
                      ...group.map((item) => Padding(
-                       padding: const EdgeInsets.symmetric(horizontal: gap, vertical: 2),
-                       child: SizedBox(
-                         height: 120, // Match the MediaCard height
-                         child: Row(
-                           children: [
-                             // Season indicator
-                             Container(
-                               width: 28,
-                               height: 28,
-                               decoration: BoxDecoration(
-                                 color: Theme.of(context).colorScheme.primary,
-                                 shape: BoxShape.circle,
-                               ),
-                               child: Center(
-                                 child: Text(
-                                   _getSeasonDisplay(item),
-                                   style: const TextStyle(
-                                     color: Colors.white,
-                                     fontWeight: FontWeight.bold,
-                                     fontSize: 10,
-                                   ),
+                       padding: const EdgeInsets.symmetric(horizontal: gap, vertical: 1),
+                       child: Row(
+                         children: [
+                           // Season indicator
+                           Container(
+                             width: 24,
+                             height: 24,
+                             decoration: BoxDecoration(
+                               color: Theme.of(context).colorScheme.primary,
+                               shape: BoxShape.circle,
+                             ),
+                             child: Center(
+                               child: Text(
+                                 _getSeasonDisplay(item),
+                                 style: const TextStyle(
+                                   color: Colors.white,
+                                   fontWeight: FontWeight.bold,
+                                   fontSize: 9,
                                  ),
                                ),
                              ),
-                             
-                             const SizedBox(width: 8),
-                             
-                             // Item card
-                             Expanded(
-                               child: MediaCard(
-                                 item: item,
-                                 isGrid: false,
-                                 onTap: () => Navigator.push(
-                                   context,
-                                   PageRouteBuilder(
-                                     pageBuilder: (_, __, ___) => DetailsScreen(item: item),
-                                     transitionsBuilder: (_, animation, __, child) => 
-                                         FadeTransition(opacity: animation, child: child),
-                                     transitionDuration: const Duration(milliseconds: 250),
-                                   ),
+                           ),
+                           
+                           const SizedBox(width: 6),
+                           
+                           // Item card
+                           Expanded(
+                             child: MediaCard(
+                               item: item,
+                               isGrid: false,
+                               onTap: () => Navigator.push(
+                                 context,
+                                 PageRouteBuilder(
+                                   pageBuilder: (_, __, ___) => DetailsScreen(item: item),
+                                   transitionsBuilder: (_, animation, __, child) => 
+                                       FadeTransition(opacity: animation, child: child),
+                                   transitionDuration: const Duration(milliseconds: 250),
                                  ),
                                ),
                              ),
-                           ],
-                         ),
+                           ),
+                         ],
                        ),
                      )),
                     
