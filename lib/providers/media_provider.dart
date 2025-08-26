@@ -358,13 +358,24 @@ class MediaProvider with ChangeNotifier {
         final existingBaseTitle = normalizeTitle(e.title);
         final existingSeasonKey = _getSeasonKey(e);
         
-        final isDuplicate = existingBaseTitle == baseTitle &&
-               (e.releaseYear ?? -1) == (item.releaseYear ?? -1) &&
-               e.type == item.type &&
-               existingSeasonKey == itemSeasonKey;
+        // Check if titles are the same (after normalization)
+        final titlesMatch = existingBaseTitle == baseTitle;
+        
+        // Check if years match (if both have years)
+        final yearsMatch = (e.releaseYear ?? -1) == (item.releaseYear ?? -1);
+        
+        // Check if types match
+        final typesMatch = e.type == item.type;
+        
+        // Check if seasons match (both must have the same season info)
+        final seasonsMatch = existingSeasonKey == itemSeasonKey;
+        
+        // Items are duplicates if they have the same title, year, type, AND season
+        final isDuplicate = titlesMatch && yearsMatch && typesMatch && seasonsMatch;
         
         if (isDuplicate) {
           debugPrint('Found duplicate: "${e.title}" -> baseTitle: "$existingBaseTitle", seasonKey: "$existingSeasonKey"');
+          debugPrint('  titlesMatch: $titlesMatch, yearsMatch: $yearsMatch, typesMatch: $typesMatch, seasonsMatch: $seasonsMatch');
         }
         
         return isDuplicate;
@@ -860,7 +871,7 @@ class MediaProvider with ChangeNotifier {
 
   // Extract season information from title or extra data
   String _extractSeasonInfo(MediaItem item) {
-    // Check extra data first
+    // Check extra data first (this takes priority)
     if (item.extra != null) {
       final seasons = item.extra!['seasons']?.toString();
       if (seasons != null && seasons.trim().isNotEmpty) {
@@ -876,19 +887,25 @@ class MediaProvider with ChangeNotifier {
       RegExp(r'part\s*(\d+)', caseSensitive: false),
       RegExp(r'volume\s*(\d+)', caseSensitive: false),
       RegExp(r'vol\.?\s*(\d+)', caseSensitive: false),
-      RegExp(r'season\s*(\d+)', caseSensitive: false),
       RegExp(r'(\d+)\s*season', caseSensitive: false),
       RegExp(r'(\d+)\s*part', caseSensitive: false),
       RegExp(r'(\d+)\s*volume', caseSensitive: false),
+      RegExp(r'season\s*(\d+)', caseSensitive: false),
+      RegExp(r'part\s*(\d+)', caseSensitive: false),
+      RegExp(r'volume\s*(\d+)', caseSensitive: false),
     ];
     
     for (final pattern in seasonPatterns) {
       final match = pattern.firstMatch(title);
       if (match != null) {
-        return match.group(1) ?? '';
+        final seasonNumber = match.group(1) ?? '';
+        if (seasonNumber.isNotEmpty) {
+          return seasonNumber;
+        }
       }
     }
     
+    // If no season found, return empty string (indicating no season)
     return '';
   }
 
@@ -918,6 +935,9 @@ class MediaProvider with ChangeNotifier {
       RegExp(r'\s*\d+\s*season.*', caseSensitive: false),
       RegExp(r'\s*\d+\s*part.*', caseSensitive: false),
       RegExp(r'\s*\d+\s*volume.*', caseSensitive: false),
+      RegExp(r'\s*season\s*\d+.*', caseSensitive: false),
+      RegExp(r'\s*part\s*\d+.*', caseSensitive: false),
+      RegExp(r'\s*volume\s*\d+.*', caseSensitive: false),
     ];
     
     String result = normalized;
@@ -925,7 +945,10 @@ class MediaProvider with ChangeNotifier {
       result = result.replaceAll(pattern, '');
     }
     
-    return result.trim();
+    // Clean up any extra whitespace
+    result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
+    
+    return result;
   }
 
   // Delete all items in group except the first (newest)
