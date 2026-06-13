@@ -30,35 +30,33 @@ class _HomeScreenState extends State<HomeScreen>
   late TabController _tabController;
   Timer? _shuffleTimer;
   int _shuffleTick = 0;
+  bool _dataReady = false;
+  bool _shuffleEnabled = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 5, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {});
-      }
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Stagger the initial data load slightly to improve first frame time
       if (!AppEnv.testMode) {
-        await Future.delayed(const Duration(milliseconds: 150));
+        await Future.delayed(const Duration(milliseconds: 50));
       }
-      // Capture context before async operations
       if (!mounted) return;
       final mp = Provider.of<MediaProvider>(context, listen: false);
-      final defaultGrid = context.read<SettingsProvider>().defaultGridView;
+      final sp = context.read<SettingsProvider>();
+      final defaultGrid = sp.defaultGridView;
+      _shuffleEnabled = sp.shuffleCardsEnabled;
       if (!AppEnv.testMode) {
-        Future.microtask(() => mp.warmStart());
+        await mp.warmStart();
       }
+      if (!mounted) return;
       if (mp.isGridView != defaultGrid) {
         mp.toggleView();
       }
+      setState(() => _dataReady = true);
+      _maybeStartShuffle();
     });
-    // Keep cards dynamic: reshuffle periodically (lightweight setState)
-    _maybeStartShuffle();
   }
 
   @override
@@ -80,11 +78,12 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _maybeStartShuffle() {
+  void _maybeStartShuffle({bool? enabled}) {
     _shuffleTimer?.cancel();
     if (!mounted) return;
-    final sp = context.read<SettingsProvider>();
-    if (sp.shuffleCardsEnabled) {
+    final shuffleOn = enabled ?? context.read<SettingsProvider>().shuffleCardsEnabled;
+    _shuffleEnabled = shuffleOn;
+    if (shuffleOn && _dataReady) {
       _shuffleTimer = Timer.periodic(const Duration(seconds: 20), (_) {
         if (!mounted) return;
         setState(() => _shuffleTick++);
@@ -95,28 +94,43 @@ class _HomeScreenState extends State<HomeScreen>
   // _getCategoryFromTab no longer used (TabBarView provides explicit mapping)
 
   Widget _buildBodyFor(String selectedCategory) {
-    final mediaProvider = Provider.of<MediaProvider>(context);
+    return Selector2<MediaProvider, SettingsProvider, _HomeTabData>(
+      selector: (_, mp, sp) => _HomeTabData(
+        category: selectedCategory,
+        items: mp.itemsForCategory(selectedCategory),
+        isGridView: mp.isGridView,
+        showStats: sp.showStats,
+        shuffleOn: sp.shuffleCardsEnabled,
+        shuffleTick: _shuffleTick,
+        isLoading: mp.isLoading,
+        hasSearch: mp.hasActiveSearch,
+        searchQuery: mp.searchQuery,
+        statusFilter: mp.statusFilter,
+        languageFilter: mp.languageFilter,
+      ),
+      shouldRebuild: (prev, next) => prev != next,
+      builder: (context, data, _) {
+        return _buildBodyContent(data);
+      },
+    );
+  }
+
+  Widget _buildBodyContent(_HomeTabData data) {
+    final mediaProvider = Provider.of<MediaProvider>(context, listen: false);
     const double gap = ThemeSpacing.gap12;
     const double headerHeight = 160;
 
-    final baseItems = selectedCategory == 'All'
-        ? mediaProvider.items
-        : mediaProvider.items.where((item) => item.type == selectedCategory).toList();
-    
-    // Sort alphabetically by title when shuffle is off, otherwise shuffle
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final List<MediaItem> filteredItems;
-    if (settingsProvider.shuffleCardsEnabled) {
-      filteredItems = List.of(baseItems)..shuffle(Random(_shuffleTick + selectedCategory.hashCode));
+    if (data.shuffleOn) {
+      filteredItems = List.of(data.items)..shuffle(Random(data.shuffleTick + data.category.hashCode));
     } else {
-      filteredItems = List.of(baseItems)
+      filteredItems = List.of(data.items)
         ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
     }
-    
-    // Performance optimization: Limit items for very large lists
-    final int maxItemsToShow = 100; // Show max 100 items at once for smooth scrolling
-    final List<MediaItem> displayItems = filteredItems.length > maxItemsToShow 
-        ? filteredItems.take(maxItemsToShow).toList() 
+
+    const int maxItemsToShow = 100;
+    final List<MediaItem> displayItems = filteredItems.length > maxItemsToShow
+        ? filteredItems.take(maxItemsToShow).toList()
         : filteredItems;
 
     final Map<String, int> localStats = {
@@ -146,8 +160,12 @@ class _HomeScreenState extends State<HomeScreen>
       });
     }
 
+    if (!_dataReady || data.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return CustomScrollView(
-      cacheExtent: 2000, // Increased cache for smoother scrolling
+      cacheExtent: 600,
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         const SliverToBoxAdapter(child: SizedBox(height: gap)),
@@ -160,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: gap)),
-        if (Provider.of<SettingsProvider>(context).showStats)
+        if (data.showStats)
           SliverPadding(
             padding: const EdgeInsets.symmetric(vertical: gap, horizontal: 16.0),
             sliver: SliverGrid(
@@ -178,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen>
               ]),
             ),
           ),
-        if (Provider.of<SettingsProvider>(context).showStats) const SliverToBoxAdapter(child: SizedBox(height: gap)),
+        if (data.showStats) const SliverToBoxAdapter(child: SizedBox(height: gap)),
         if (filteredItems.isEmpty)
           SliverToBoxAdapter(
             child: Padding(
@@ -187,19 +205,46 @@ class _HomeScreenState extends State<HomeScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.tv_off, size: 100, color: Color(0xFF90CAF9)),
+                    Icon(
+                      data.hasSearch ? Icons.search_off : Icons.tv_off,
+                      size: 100,
+                      color: const Color(0xFF90CAF9),
+                    ),
                     const SizedBox(height: 16),
-                    const Text('No items here yet!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      data.hasSearch ? 'No matches found' : 'No items here yet!',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 8),
-                    const Text('Tap below to add your first item.', style: TextStyle(fontSize: 14, color: Colors.black54)),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(icon: const Icon(Icons.add), label: const Text('Add Item'), onPressed: () => openAddEdit(true)),
+                    Text(
+                      data.hasSearch
+                          ? 'Clear search or change filters to see your catalog.'
+                          : 'Tap below to add your first item.',
+                      style: const TextStyle(fontSize: 14, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (data.hasSearch) ...[
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: () => mediaProvider.clearSearch(),
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Clear search'),
+                      ),
+                    ],
+                    if (!data.hasSearch) ...[
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Item'),
+                        onPressed: () => openAddEdit(true),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
           )
-        else if (mediaProvider.isGridView)
+        else if (data.isGridView)
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: gap),
             sliver: SliverGrid(
@@ -310,16 +355,17 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        // Listen for shuffle setting changes and update timer accordingly
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _maybeStartShuffle();
-          }
-        });
-        
-        return Container(
+    final shuffleOn = context.select<SettingsProvider, bool>((s) => s.shuffleCardsEnabled);
+    if (shuffleOn != _shuffleEnabled && _dataReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeStartShuffle(enabled: shuffleOn);
+      });
+    }
+
+    final isLoading = context.select<MediaProvider, bool>((mp) => mp.isLoading);
+    final tabsEnabled = _dataReady && !isLoading;
+
+    return Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -391,37 +437,50 @@ class _HomeScreenState extends State<HomeScreen>
               ]);
             })
           ],
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: ThemeSpacing.gap12),
-            labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            labelColor: Theme.of(context).colorScheme.onPrimary,
-            unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
-            indicatorColor: Theme.of(context).colorScheme.onPrimary,
-            indicatorWeight: 3,
-            tabs: const [
-              Tab(text: 'All'),
-              Tab(text: 'Movies'),
-              Tab(text: 'Anime'),
-              Tab(text: 'K-Drama'),
-              Tab(text: 'Series'),
-            ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: IgnorePointer(
+              ignoring: !tabsEnabled,
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelPadding: const EdgeInsets.symmetric(horizontal: ThemeSpacing.gap12),
+                labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                labelColor: Theme.of(context).colorScheme.onPrimary,
+                unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
+                indicatorColor: Theme.of(context).colorScheme.onPrimary,
+                indicatorWeight: 3,
+                tabs: const [
+                  Tab(text: 'All'),
+                  Tab(text: 'Movies'),
+                  Tab(text: 'Anime'),
+                  Tab(text: 'K-Drama'),
+                  Tab(text: 'Series'),
+                ],
+              ),
+            ),
           ),
         ),
-        body: TabBarView(
-          controller: _tabController,
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-          children: [
-            _KeepAlive(child: _buildBodyFor('All')),
-            _KeepAlive(child: _buildBodyFor('Movies')),
-            _KeepAlive(child: _buildBodyFor('Anime')),
-            _KeepAlive(child: _buildBodyFor('K-Drama')),
-            _KeepAlive(child: _buildBodyFor('Series')),
-          ],
-        ),
-                 floatingActionButton: FloatingActionButton(
+        body: !_dataReady
+            ? const Center(child: CircularProgressIndicator())
+            : IgnorePointer(
+                ignoring: !tabsEnabled,
+                child: TabBarView(
+                  controller: _tabController,
+                  physics: tabsEnabled
+                      ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+                      : const NeverScrollableScrollPhysics(),
+                  children: [
+                    _KeepAlive(child: _buildBodyFor('All')),
+                    _KeepAlive(child: _buildBodyFor('Movies')),
+                    _KeepAlive(child: _buildBodyFor('Anime')),
+                    _KeepAlive(child: _buildBodyFor('K-Drama')),
+                    _KeepAlive(child: _buildBodyFor('Series')),
+                  ],
+                ),
+              ),
+        floatingActionButton: FloatingActionButton(
            onPressed: () {
              Navigator.push(
                context,
@@ -436,10 +495,68 @@ class _HomeScreenState extends State<HomeScreen>
          ),
        ),
      );
-       },
-     );
-   }
- }
+  }
+}
+
+class _HomeTabData {
+  final String category;
+  final List<MediaItem> items;
+  final bool isGridView;
+  final bool showStats;
+  final bool shuffleOn;
+  final int shuffleTick;
+  final bool isLoading;
+  final bool hasSearch;
+  final String searchQuery;
+  final String statusFilter;
+  final String languageFilter;
+
+  const _HomeTabData({
+    required this.category,
+    required this.items,
+    required this.isGridView,
+    required this.showStats,
+    required this.shuffleOn,
+    required this.shuffleTick,
+    required this.isLoading,
+    required this.hasSearch,
+    required this.searchQuery,
+    required this.statusFilter,
+    required this.languageFilter,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _HomeTabData &&
+        other.category == category &&
+        other.isGridView == isGridView &&
+        other.showStats == showStats &&
+        other.shuffleOn == shuffleOn &&
+        other.shuffleTick == shuffleTick &&
+        other.isLoading == isLoading &&
+        other.hasSearch == hasSearch &&
+        other.searchQuery == searchQuery &&
+        other.statusFilter == statusFilter &&
+        other.languageFilter == languageFilter &&
+        other.items.length == items.length;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        category,
+        items.length,
+        isGridView,
+        showStats,
+        shuffleOn,
+        shuffleTick,
+        isLoading,
+        hasSearch,
+        searchQuery,
+        statusFilter,
+        languageFilter,
+      );
+}
 
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;

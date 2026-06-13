@@ -12,6 +12,7 @@ import '../providers/media_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/database_service.dart';
 import '../services/backup_service.dart';
+import '../services/android_permissions.dart';
 import '../theme/spacing.dart';
 import '../constants/features.dart';
 
@@ -147,6 +148,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(28),
                               onTap: () async {
+                                final ok = await AndroidPermissions.ensureForImagePicker(fromCamera: false);
+                                if (!ok) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Permission required to access photos')),
+                                  );
+                                  return;
+                                }
                                 final picker = ImagePicker();
                                 final picked = await picker.pickImage(source: ImageSource.gallery);
                                 if (picked != null) {
@@ -461,24 +470,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   try {
                     final rows = await DatabaseService().exportAll();
                     final jsonStr = jsonEncode(rows);
-                    final cipher = await DatabaseService().encryptText(jsonStr);
                     final dir = await getApplicationDocumentsDirectory();
                     final file = File('${dir.path}/mediavault_backup_${DateTime.now().millisecondsSinceEpoch}.mvb');
-                    await file.writeAsString(cipher);
+                    await file.writeAsString(jsonStr);
                     if (!mounted) return;
                     // ignore: use_build_context_synchronously
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup saved: ${file.path}')));
                   } catch (e) {
                     if (!mounted) return;
                     // ignore: use_build_context_synchronously
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to create backup')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create backup: $e')));
                   }
                 },
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.lock_open_rounded),
-                title: const Text('Restore Encrypted Backup'),
+                title: const Text('Restore Backup'),
                 subtitle: const Text('Pick a .mvb backup file to restore'),
                 onTap: () async {
                   try {
@@ -490,8 +498,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     final path = result.files.single.path;
                     if (path == null) return;
                     final file = File(path);
-                    final cipher = await file.readAsString();
-                    final plain = await DatabaseService().decryptText(cipher);
+                    final content = await file.readAsString();
+                    // Try to decrypt first (for old encrypted backups)
+                    String plain;
+                    try {
+                      plain = await DatabaseService().decryptFromBackup(content);
+                    } catch (_) {
+                      // If decryption fails, assume it's unencrypted JSON
+                      plain = content;
+                    }
                     final decoded = jsonDecode(plain);
                     final list = decoded is List ? decoded : [decoded];
                     final resultCounts = await context.read<MediaProvider>().importFromJsonDynamic(list);
@@ -500,10 +515,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Restore complete: ${resultCounts['inserted']} added, ${resultCounts['updated']} updated, ${resultCounts['skipped']} skipped')),
                     );
-                  } catch (_) {
+                  } catch (e) {
                     if (!mounted) return;
                     // ignore: use_build_context_synchronously
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to restore backup')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to restore backup: $e')));
                   }
                 },
               ),

@@ -1,0 +1,8 @@
+# Copy to android/key.properties and fill in your release keystore values.
+# Generate a keystore: scripts/create_release_keystore.ps1
+#
+# storeFile path is relative to the android/ directory.
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=mediavault
+storeFile=app/mediavault-release.jks

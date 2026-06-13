@@ -5,13 +5,56 @@ import '../providers/settings_provider.dart';
 import '../theme/spacing.dart';
 
 /// SearchFilter includes the search field, history chips, and two dropdown filters.
-class SearchFilter extends StatelessWidget {
+class SearchFilter extends StatefulWidget {
   const SearchFilter({super.key});
+
+  @override
+  State<SearchFilter> createState() => _SearchFilterState();
+}
+
+class _SearchFilterState extends State<SearchFilter> {
+  late final TextEditingController _searchController;
+  bool _syncingFromProvider = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applySearch(String q, MediaProvider mediaProvider) {
+    if (mediaProvider.searchQuery == q) return;
+    mediaProvider.setSearchQuery(q);
+  }
+
+  void _clearSearch(MediaProvider mediaProvider) {
+    _syncingFromProvider = true;
+    _searchController.clear();
+    _syncingFromProvider = false;
+    mediaProvider.clearSearch();
+    mediaProvider.setStatusFilter('All');
+    mediaProvider.setLanguageFilter('All');
+  }
 
   @override
   Widget build(BuildContext context) {
     final mediaProvider = Provider.of<MediaProvider>(context);
     const double gap = ThemeSpacing.gap12;
+
+    if (!_syncingFromProvider && _searchController.text != mediaProvider.searchQuery) {
+      _syncingFromProvider = true;
+      _searchController.value = TextEditingValue(
+        text: mediaProvider.searchQuery,
+        selection: TextSelection.collapsed(offset: mediaProvider.searchQuery.length),
+      );
+      _syncingFromProvider = false;
+    }
 
     final languages = [
       'All',
@@ -23,8 +66,6 @@ class SearchFilter extends StatelessWidget {
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())),
     ];
 
-    // Tags and web series quick filters removed per request
-
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: gap / 2),
       child: Column(
@@ -32,16 +73,25 @@ class SearchFilter extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
+            controller: _searchController,
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Search your catalog...',
               prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
+              suffixIcon: mediaProvider.hasActiveSearch
+                  ? IconButton(
+                      tooltip: 'Clear search',
+                      icon: const Icon(Icons.clear),
+                      onPressed: () => _clearSearch(mediaProvider),
+                    )
+                  : null,
               contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               filled: true,
             ),
             onChanged: (q) {
-              mediaProvider.setSearchQuery(q);
+              if (_syncingFromProvider) return;
+              _applySearch(q, mediaProvider);
             },
             onSubmitted: (q) async {
               try {
@@ -63,7 +113,12 @@ class SearchFilter extends StatelessWidget {
                           child: InputChip(
                             label: Text(q, overflow: TextOverflow.ellipsis, maxLines: 1, softWrap: false),
                             avatar: const Icon(Icons.history, size: 18),
-                            onPressed: () => mediaProvider.setSearchQuery(q),
+                            onPressed: () {
+                              _syncingFromProvider = true;
+                              _searchController.text = q;
+                              _syncingFromProvider = false;
+                              _applySearch(q, mediaProvider);
+                            },
                             onDeleted: () => Provider.of<SettingsProvider>(context, listen: false).removeRecentSearch(q),
                           ),
                         )),
@@ -72,7 +127,12 @@ class SearchFilter extends StatelessWidget {
                           child: InputChip(
                             label: Text(q, overflow: TextOverflow.ellipsis, maxLines: 1, softWrap: false),
                             avatar: const Icon(Icons.bookmark, size: 18),
-                            onPressed: () => mediaProvider.setSearchQuery(q),
+                            onPressed: () {
+                              _syncingFromProvider = true;
+                              _searchController.text = q;
+                              _syncingFromProvider = false;
+                              _applySearch(q, mediaProvider);
+                            },
                             onDeleted: () => Provider.of<SettingsProvider>(context, listen: false).removeSavedSearch(q),
                           ),
                         )),
@@ -104,7 +164,7 @@ class SearchFilter extends StatelessWidget {
                           label: const Text('Clear all'),
                         ),
                       ),
-                    if (mediaProvider.searchQuery.trim().isNotEmpty)
+                    if (mediaProvider.hasActiveSearch)
                       TextButton.icon(
                         onPressed: () => Provider.of<SettingsProvider>(context, listen: false)
                             .saveCurrentSearch(mediaProvider.searchQuery),
@@ -137,14 +197,14 @@ class SearchFilter extends StatelessWidget {
                   items: (['All', 'Unwatched', 'Done', 'Watch list', 'Watching']
                         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
                       .map((status) => DropdownMenuItem(
-                        value: status, 
+                        value: status,
                         child: Text(
-                          status, 
+                          status,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                           ),
-                        )
+                        ),
                       ))
                       .toList(),
                   onChanged: (value) => mediaProvider.setStatusFilter(value!),
@@ -167,14 +227,14 @@ class SearchFilter extends StatelessWidget {
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   ),
                   items: languages.map((l) => DropdownMenuItem(
-                    value: l, 
+                    value: l,
                     child: Text(
-                      l, 
+                      l,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                       ),
-                    )
+                    ),
                   )).toList(),
                   onChanged: (value) => mediaProvider.setLanguageFilter(value!),
                 ),
@@ -198,9 +258,9 @@ class SearchFilter extends StatelessWidget {
             ],
           ),
           SizedBox(height: gap),
-          // Removed tag chips and web series kind quick filters
         ],
       ),
     );
   }
 }
+

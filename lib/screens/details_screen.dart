@@ -47,8 +47,18 @@ class _DetailsScreenState extends State<DetailsScreen> {
     return 'https://$u';
   }
 
+  String? _shareLinkUrl() {
+    final t = (widget.item.extra?['trailer'] ?? '').toString().trim();
+    if (t.isNotEmpty) return _normalizeUrl(t);
+    final notes = widget.item.notes ?? '';
+    final m = RegExp(r'https?://\S+').firstMatch(notes);
+    if (m != null) return _normalizeUrl(m.group(0)!);
+    return null;
+  }
+
   Future<void> _shareCapture({required bool dark}) async {
     final messenger = ScaffoldMessenger.of(context);
+    final linkUrl = _shareLinkUrl();
     try {
       setState(() {
         _shareOverride = true;
@@ -65,7 +75,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final fname = dark ? 'mediacard_dark' : 'mediacard_light';
       final file = File('${dir.path}/${fname}_${widget.item.id ?? DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(pngBytes, flush: true);
-      await Share.shareXFiles([XFile(file.path)], text: 'Check this out: ${widget.item.title}');
+      final linkLine = linkUrl != null ? '\n$linkUrl' : '';
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Check this out: ${widget.item.title}$linkLine',
+      );
     } catch (_) {
       if (messenger.mounted) {
         messenger.showSnackBar(const SnackBar(content: Text('Failed to share')));
@@ -77,13 +91,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String? trailerUrl = (() {
-      final t = (widget.item.extra?['trailer'] ?? '').toString().trim();
-      if (t.isNotEmpty) return t;
-      final notes = widget.item.notes ?? '';
-      final m = RegExp(r'https?://\S+').firstMatch(notes);
-      return m?.group(0);
-    })();
+    final String? trailerUrl = _shareLinkUrl();
     const double gap = ThemeSpacing.gap12;
     return Scaffold(
       appBar: AppBar(
@@ -133,6 +141,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
             tooltip: 'Share',
             icon: const Icon(Icons.share),
             onPressed: () async {
+              final linkUrl = _shareLinkUrl();
               final choice = await showModalBottomSheet<String>(
                 context: context,
                 showDragHandle: true,
@@ -150,6 +159,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
                         title: const Text('Share (white background)'),
                         onTap: () => Navigator.pop(ctx, 'light'),
                       ),
+                      if (linkUrl != null && linkUrl.trim().isNotEmpty)
+                        ListTile(
+                          leading: const Icon(Icons.link),
+                          title: const Text('Share link only'),
+                          onTap: () => Navigator.pop(ctx, 'link'),
+                        ),
                     ],
                   ),
                 ),
@@ -158,6 +173,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 await _shareCapture(dark: true);
               } else if (choice == 'light') {
                 await _shareCapture(dark: false);
+              } else if (choice == 'link' && linkUrl != null) {
+                await Share.share(linkUrl);
               }
             },
           ),
@@ -359,8 +376,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           _infoRow(context, 'Release Year', widget.item.releaseYear.toString(), forceWhite: _shareOverride && _shareDark),
                         if (widget.item.watchedYear != null)
                           _infoRow(context, 'Watched Year', widget.item.watchedYear.toString(), forceWhite: _shareOverride && _shareDark),
-                        if (widget.item.recommend != null)
-                          _infoRow(context, 'Recommend', widget.item.recommend!, forceWhite: _shareOverride && _shareDark),
+                        if (_shareOverride && trailerUrl != null && trailerUrl.trim().isNotEmpty)
+                          _infoRow(
+                            context,
+                            'Link',
+                            _normalizeUrl(trailerUrl),
+                            forceWhite: _shareDark,
+                          ),
                         _infoRow(
                           context,
                           'Added',

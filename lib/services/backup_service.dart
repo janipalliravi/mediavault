@@ -10,7 +10,7 @@ import 'database_service.dart';
 class BackupService {
   final DatabaseService _db = DatabaseService();
 
-  /// Writes an encrypted backup to the selected folder.
+  /// Writes an unencrypted JSON backup to the selected folder.
   /// Keeps multiple versions by date; caller can clean older versions if desired.
   /// If [force] is true, runs even when auto-backup is disabled.
   Future<bool> writeAutoBackup({bool force = false}) async {
@@ -20,10 +20,9 @@ class BackupService {
       if (!enabled && !force) return false;
       final overridePath = prefs.getString('settings.backupFolderPath');
 
-      // Export all rows and encrypt
+      // Export all rows as unencrypted JSON
       final rows = await _db.exportAll();
       final jsonStr = jsonEncode(rows);
-      final cipher = await _db.encryptText(jsonStr);
       // Use a single rolling filename inside the chosen folder to avoid many files
       const rollingFileName = 'mediavault_auto.mvb';
       // Use a timestamped name only for the fallback prompted save dialog
@@ -35,7 +34,7 @@ class BackupService {
           final dir = Directory(overridePath);
           if (!await dir.exists()) await dir.create(recursive: true);
           final out = File('${dir.path}/$rollingFileName');
-          await out.writeAsString(cipher, flush: true);
+          await out.writeAsString(jsonStr, flush: true);
           return true;
         } catch (e) {
           // Fall back to system saver if direct write fails (permissions, SAF, etc.)
@@ -44,7 +43,7 @@ class BackupService {
       }
 
       // Fall back to system file saver (prompts user)
-      final bytes = Uint8List.fromList(utf8.encode(cipher));
+      final bytes = Uint8List.fromList(utf8.encode(jsonStr));
       await FileSaver.instance.saveFile(name: fallbackName, bytes: bytes, ext: 'mvb', mimeType: MimeType.other);
       return true;
     } catch (e) {

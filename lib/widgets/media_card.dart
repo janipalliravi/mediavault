@@ -116,11 +116,10 @@ class _MediaCardState extends State<MediaCard> {
         setState(() => _accent = cached);
         return;
       }
-      // Performance optimization: Skip palette computation for large lists
-      if (_paletteCache.length > 50) return; // Limit cache size
-      
-      // Stagger computation slightly to avoid burst on first frame
-      await Future.delayed(Duration(milliseconds: 200 + (widget.hashCode % 200)));
+      // Skip palette work when many cards are on screen (home grid/list)
+      if (_paletteCache.length > 24) return;
+
+      await Future.delayed(Duration(milliseconds: 400 + (widget.hashCode % 400)));
       PaletteGenerator gen;
       if (imgPath.startsWith('http')) {
         gen = await PaletteGenerator.fromImageProvider(NetworkImage(imgPath), maximumColorCount: 3);

@@ -12,7 +12,10 @@ import 'image_crop_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
-// settings provider not needed for spacing now
+import '../services/android_permissions.dart';
+import '../services/image_search_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// AddEditScreen allows creating or editing a media item.
 /// It supports multi-image import with compression, URL normalization for trailer,
@@ -161,6 +164,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
+      final ok = await AndroidPermissions.ensureForImagePicker(
+        fromCamera: source == ImageSource.camera,
+      );
+      if (!ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission required to access photos or camera')),
+        );
+        return;
+      }
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: source);
       if (pickedFile != null) {
@@ -196,6 +209,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   Future<void> _pickImagesFromGallery() async {
     try {
+      final ok = await AndroidPermissions.ensureForImagePicker(fromCamera: false);
+      if (!ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission required to access photos')),
+        );
+        return;
+      }
       final picker = ImagePicker();
       final files = await picker.pickMultiImage();
       if (files.isEmpty) return;
@@ -254,11 +275,117 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   _pickImage(ImageSource.camera);
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.search),
+                title: const Text('Search Online'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _searchOnlineImage();
+                },
+              ),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _searchOnlineImage() async {
+    final searchController = TextEditingController(text: _titleCtrl.text);
+    final imageSearchService = ImageSearchService();
+    List<ImageSearchResult> searchResults = [];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Search for Poster'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter movie/anime/series name',
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () async {
+                          if (searchController.text.trim().isEmpty) return;
+                          setDialogState(() => searchResults = []);
+                          final type = _type == 'Movies' ? 'movie' : 'tv';
+                          final results = await imageSearchService.searchMedia(
+                            searchController.text.trim(),
+                            type: type,
+                          );
+                          if (mounted) {
+                            setDialogState(() => searchResults = results);
+                          }
+                        },
+                      ),
+                    ),
+                    onSubmitted: (value) async {
+                      if (value.trim().isEmpty) return;
+                      setDialogState(() => searchResults = []);
+                      final type = _type == 'Movies' ? 'movie' : 'tv';
+                      final results = await imageSearchService.searchMedia(
+                        value.trim(),
+                        type: type,
+                      );
+                      if (mounted) {
+                        setDialogState(() => searchResults = results);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: searchResults.isEmpty
+                        ? const Center(child: Text('Search for images above'))
+                        : GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 2 / 3,
+                            ),
+                            itemCount: searchResults.length,
+                            itemBuilder: (context, index) {
+                              final result = searchResults[index];
+                              final imageUrl = imageSearchService.getImageUrl(result.posterPath);
+                              return GestureDetector(
+                                onTap: () async {
+                                  if (imageUrl.isEmpty) return;
+                                  // Store network URL directly instead of downloading
+                                  if (!mounted) return;
+                                  setState(() => _imagePath = imageUrl);
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                },
+                                child: CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    searchController.dispose();
   }
 
   Future<void> _save() async {

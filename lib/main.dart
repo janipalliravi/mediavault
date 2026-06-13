@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/media_provider.dart';
 import 'providers/settings_provider.dart';
@@ -14,7 +17,11 @@ import 'screens/stats_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Avoid runtime font fetching in debug which can slow first frame
+
+  // Android 15/16 edge-to-edge (API 35+); safe on API 34 with insets
+  if (Platform.isAndroid) {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
 
   final mediaProvider = MediaProvider();
   runApp(

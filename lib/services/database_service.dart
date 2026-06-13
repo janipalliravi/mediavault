@@ -17,6 +17,8 @@ class DatabaseService {
 
   final _secure = const FlutterSecureStorage();
   static const _kKeyName = 'mv_aes_key_v1';
+  // Fixed key for portable .mvb backups (base64 of 32-byte key)
+  static const _kPortableKey = 'T1xZW7vQ9yK2mN8pR4sT6uV3wX5zA7cB9dE1fG3hI5jK7lM9nO=';
 
   Future<enc.Key> _getOrCreateKey() async {
     String? base64Key = await _secure.read(key: _kKeyName);
@@ -27,6 +29,11 @@ class DatabaseService {
       return key;
     }
     return enc.Key.fromBase64(base64Key);
+  }
+
+  // Get portable key for .mvb backups (same across APK versions)
+  enc.Key _getPortableKey() {
+    return enc.Key.fromBase64(_kPortableKey);
   }
 
   Future<String> encryptText(String plain) async {
@@ -47,6 +54,40 @@ class DatabaseService {
       return encrypter.decrypt(enc.Encrypted.fromBase64(data), iv: iv);
     } catch (_) {
       return cipher; // fallback: return as-is
+    }
+  }
+
+  // Encrypt for portable .mvb backups (uses fixed key)
+  String encryptForBackup(String plain) {
+    final key = _getPortableKey();
+    final iv = enc.IV.fromSecureRandom(16);
+    final encrypter = enc.Encrypter(enc.AES(key));
+    final encrypted = encrypter.encrypt(plain, iv: iv);
+    return '${iv.base64}:${encrypted.base64}';
+  }
+
+  // Decrypt from portable .mvb backups (uses fixed key)
+  Future<String> decryptFromBackup(String cipher) async {
+    // Try portable key first
+    try {
+      final parts = cipher.split(':');
+      final iv = enc.IV.fromBase64(parts[0]);
+      final data = parts[1];
+      final key = _getPortableKey();
+      final encrypter = enc.Encrypter(enc.AES(key));
+      return encrypter.decrypt(enc.Encrypted.fromBase64(data), iv: iv);
+    } catch (_) {
+      // Try old secure storage key as fallback for backward compatibility
+      try {
+        final parts = cipher.split(':');
+        final iv = enc.IV.fromBase64(parts[0]);
+        final data = parts[1];
+        final key = await _getOrCreateKey();
+        final encrypter = enc.Encrypter(enc.AES(key));
+        return encrypter.decrypt(enc.Encrypted.fromBase64(data), iv: iv);
+      } catch (e) {
+        throw Exception('Failed to decrypt backup file: $e');
+      }
     }
   }
 

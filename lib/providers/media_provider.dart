@@ -23,10 +23,13 @@ class MediaProvider with ChangeNotifier {
   final Set<int> _selectedIds = <int>{};
 
   // Simple caches
+  String? _filteredCacheKey;
   List<MediaItem>? _filteredCache;
   Map<String, int>? _statsCache;
+  bool _isLoading = false;
 
   void _invalidateCache() {
+    _filteredCacheKey = null;
     _filteredCache = null;
     _statsCache = null;
   }
@@ -59,6 +62,12 @@ class MediaProvider with ChangeNotifier {
 
 
   List<MediaItem> get items => _filteredItems();
+  bool get isLoading => _isLoading;
+  bool get hasActiveSearch => _searchQuery.trim().isNotEmpty;
+
+  /// Items for a home tab category (All, Movies, …) with search/filters applied once.
+  List<MediaItem> itemsForCategory(String category) => _filteredItems(categoryOverride: category);
+
   String get currentCategory => _currentCategory;
   String get searchQuery => _searchQuery;
   String get statusFilter => _statusFilter;
@@ -70,8 +79,11 @@ class MediaProvider with ChangeNotifier {
   bool get selectionMode => _selectionMode;
   Set<int> get selectedIds => _selectedIds;
 
-  List<MediaItem> _filteredItems() {
-    if (_filteredCache != null) return _filteredCache!;
+  List<MediaItem> _filteredItems({String? categoryOverride}) {
+    final category = categoryOverride ?? _currentCategory;
+    final cacheKey =
+        '$category|$_searchQuery|$_statusFilter|$_languageFilter|${_selectedTags.join(',')}|$_mangaOnlyFilter|$_webSeriesKindFilter|${_items.length}';
+    if (_filteredCache != null && _filteredCacheKey == cacheKey) return _filteredCache!;
     final query = _searchQuery.trim().toLowerCase();
     // Detect star rating intent in query, e.g., "5 stars", "4 star", "rating:3"
     int? starQuery;
@@ -250,15 +262,15 @@ class MediaProvider with ChangeNotifier {
     _filteredCache = _items
         .where((item) {
           bool matchesCategory;
-          if (_currentCategory == 'All') {
+          if (category == 'All') {
             matchesCategory = true;
-          } else if (_currentCategory == 'Unwatched') {
+          } else if (category == 'Unwatched') {
             final isPlan = item.status == 'Watch list';
             final added = item.addedDate;
             final cutoff = DateTime.now().subtract(const Duration(days: 90));
             matchesCategory = isPlan && (added != null && added.isBefore(cutoff));
           } else {
-            matchesCategory = item.type == _currentCategory;
+            matchesCategory = item.type == category;
           }
           bool matchesStatus;
           if (_statusFilter == 'All') {
@@ -293,6 +305,7 @@ class MediaProvider with ChangeNotifier {
           return matchesCategory && matchesSearch && matchesStatus && matchesLanguage && matchesSelectedTags && okManga && okWs;
         })
         .toList(growable: false);
+    _filteredCacheKey = cacheKey;
     return _filteredCache!;
   }
 
@@ -335,13 +348,18 @@ class MediaProvider with ChangeNotifier {
     }
   }
 
-  /// Fast, non-blocking initial load to quickly show UI
+  /// Initial data load for home screen.
   Future<void> warmStart() async {
-    // Fire and forget
-    // In case we want to do any lightweight prefetching later
+    if (_isLoading) return;
+    _isLoading = true;
+    notifyListeners();
     try {
       await loadItems();
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> addItem(MediaItem item) async {
@@ -452,9 +470,14 @@ class MediaProvider with ChangeNotifier {
   }
 
   void setSearchQuery(String query) {
+    if (_searchQuery == query) return;
     _searchQuery = query;
     _invalidateCache();
     notifyListeners();
+  }
+
+  void clearSearch() {
+    setSearchQuery('');
   }
 
   void setStatusFilter(String filter) {
@@ -550,7 +573,24 @@ class MediaProvider with ChangeNotifier {
           custom: custom,
         );
 
-        final existing = keyToItem[key];
+        // Use season-aware duplicate detection (same as addItem)
+        final baseTitle = normalizeTitle(candidate.title);
+        final itemSeasonKey = _getSeasonKey(candidate);
+        
+        MediaItem? existing;
+        for (final it in current) {
+          final existingBaseTitle = normalizeTitle(it.title);
+          final existingSeasonKey = _getSeasonKey(it);
+          final titlesMatch = existingBaseTitle == baseTitle;
+          final yearsMatch = (it.releaseYear ?? -1) == (candidate.releaseYear ?? -1);
+          final typesMatch = it.type == candidate.type;
+          final seasonsMatch = existingSeasonKey == itemSeasonKey;
+          if (titlesMatch && yearsMatch && typesMatch && seasonsMatch) {
+            existing = it;
+            break;
+          }
+        }
+        
         if (existing == null) {
           final id = await _databaseService.insertItem(candidate);
           keyToItem[key] = candidate.copyWith(id: id);

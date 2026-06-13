@@ -68,6 +68,50 @@ A modern Flutter application for managing your personal media library including 
    flutter run
    ```
 
+### Android 14–16 support
+
+MediaVault targets **API 36** and is configured for **Android 14, 15, and 16** (API 34–36):
+
+- Granular media permissions + partial gallery access (Android 14+)
+- Edge-to-edge UI (Android 15+)
+- 16 KB native page size (Android 16 devices)
+
+`minSdk` remains **23** so older phones can still install; use an API 34+ emulator or device for full behavior testing.
+
+### Android 16 install blocked?
+
+This is usually **Play Protect** or **Advanced Protection**, not the app itself. See **[SIDELOAD_INSTALL.md](SIDELOAD_INSTALL.md)** for step-by-step fixes and `adb install`.
+
+### Android emulator
+
+You already have AVDs in Android Studio. List and start them from the terminal:
+
+```bash
+flutter emulators
+flutter emulators --launch Pixel_8
+```
+
+Available on this machine:
+
+| ID | Name | Notes |
+|----|------|--------|
+| `Pixel_8` | Pixel 8 | Good default for MediaVault |
+| `Pixel_9` | Pixel 9 | Newer Pixel profile |
+| `Medium_Phone_API_36.0` | Medium Phone API 36 | Android 16 (API 36) |
+
+After the emulator boots, confirm it appears:
+
+```bash
+flutter devices
+flutter run -d emulator-5554
+```
+
+**Create another AVD:** Android Studio → **Device Manager** → **Create device**, or:
+
+```bash
+flutter emulators --create
+```
+
 ### Building for Release
 
 **Android APK:**
@@ -104,7 +148,7 @@ lib/
 ## Configuration
 
 ### Android Configuration
-- **Package ID**: `com.example.mediavault`
+- **Package ID**: `com.mediavault.personal` (personal sideload; see [SIDELOAD_INSTALL.md](SIDELOAD_INSTALL.md) if Android 16 blocks install)
 - **Min SDK**: 21 (Android 5.0)
 - **Target SDK**: 34 (Android 14)
 - **Auto Backup**: Enabled with custom rules

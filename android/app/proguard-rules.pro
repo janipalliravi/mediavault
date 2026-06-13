@@ -21,7 +21,7 @@
 -keep class **PluginRegistrant** { *; }
 
 # App package (models, if reflection used later)
--keep class com.example.mediavault.** { *; }
+-keep class com.mediavault.personal.** { *; }
 
 # Preserve source info for better crash logs
 -renamesourcefileattribute SourceFile
