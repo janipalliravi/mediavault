@@ -128,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen>
         ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
     }
 
-    const int maxItemsToShow = 100;
+    const int maxItemsToShow = 500; // Increased for better user experience
     final List<MediaItem> displayItems = filteredItems.length > maxItemsToShow
         ? filteredItems.take(maxItemsToShow).toList()
         : filteredItems;
@@ -164,10 +164,15 @@ class _HomeScreenState extends State<HomeScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    return CustomScrollView(
-      cacheExtent: 600,
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      slivers: [
+    return RefreshIndicator(
+      onRefresh: () async {
+        await mediaProvider.loadItems();
+        setState(() {});
+      },
+      child: CustomScrollView(
+        cacheExtent: 600,
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
         const SliverToBoxAdapter(child: SizedBox(height: gap)),
         SliverPersistentHeader(
           pinned: true,
@@ -200,43 +205,91 @@ class _HomeScreenState extends State<HomeScreen>
         if (filteredItems.isEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 32.0),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      data.hasSearch ? Icons.search_off : Icons.tv_off,
-                      size: 100,
-                      color: const Color(0xFF90CAF9),
+                    Container(
+                      width: 200,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            data.hasSearch ? Icons.search_off : Icons.movie_filter_outlined,
+                            size: 80,
+                            color: const Color(0xFF42A5F5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            data.hasSearch ? 'No Results' : 'Your Library',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1976D2),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     Text(
-                      data.hasSearch ? 'No matches found' : 'No items here yet!',
+                      data.hasSearch ? 'No matches found' : 'Start building your collection',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       data.hasSearch
-                          ? 'Clear search or change filters to see your catalog.'
-                          : 'Tap below to add your first item.',
+                          ? 'Try different search terms or clear filters'
+                          : 'Add movies, anime, K-drama, and series to track your media.',
                       style: const TextStyle(fontSize: 14, color: Colors.black54),
                       textAlign: TextAlign.center,
                     ),
                     if (data.hasSearch) ...[
-                      const SizedBox(height: 12),
-                      TextButton.icon(
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
                         onPressed: () => mediaProvider.clearSearch(),
                         icon: const Icon(Icons.clear),
-                        label: const Text('Clear search'),
+                        label: const Text('Clear Search'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF42A5F5),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ],
                     if (!data.hasSearch) ...[
-                      const SizedBox(height: 20),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Item'),
-                        onPressed: () => openAddEdit(true),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Item'),
+                            onPressed: () => openAddEdit(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF42A5F5),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: () => mediaProvider.clearSearch(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
                       ),
                     ],
                   ],
@@ -259,32 +312,24 @@ class _HomeScreenState extends State<HomeScreen>
                   return RepaintBoundary(
                     child: MediaCard(
                       item: displayItems[index],
-                    onLongPress: () async {
-                      final scaffoldMessenger = ScaffoldMessenger.of(context);
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Delete Item'),
-                          content: const Text('Are you sure you want to delete this item?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-                          ],
+                      onTap: () => Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (_, __, ___) => DetailsScreen(item: filteredItems[index]),
+                          transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+                          transitionDuration: const Duration(milliseconds: 250),
                         ),
-                      );
-                      if (confirm == true) {
-                        await mediaProvider.deleteItem(filteredItems[index].id!);
-                        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Item deleted')));
-                      }
-                    },
-                    onTap: () => Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (_, __, ___) => DetailsScreen(item: filteredItems[index]),
-                        transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
-                        transitionDuration: const Duration(milliseconds: 250),
                       ),
-                    ),
+                      onLongPress: () async {
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (_, __, ___) => AddEditScreen(item: filteredItems[index]),
+                            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+                            transitionDuration: const Duration(milliseconds: 250),
+                          ),
+                        );
+                      },
                   ),
                 );
                 },
@@ -298,39 +343,106 @@ class _HomeScreenState extends State<HomeScreen>
             sliver: SliverList.builder(
               itemCount: displayItems.length,
               itemBuilder: (context, index) {
+                final item = displayItems[index];
                 return RepaintBoundary(
-                  child: MediaCard(
-                    item: displayItems[index],
-                    isGrid: false,
-                  onLongPress: () async {
-                    final scaffoldMessenger = ScaffoldMessenger.of(context);
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Delete Item'),
-                        content: const Text('Are you sure you want to delete this item?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-                        ],
+                  child: Dismissible(
+                    key: Key('item_${item.id}'),
+                    background: Container(
+                      color: Colors.green,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 20),
+                      child: const Icon(Icons.check, color: Colors.white),
+                    ),
+                    secondaryBackground: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    confirmDismiss: (direction) async {
+                      if (direction == DismissDirection.endToStart) {
+                        // Swipe left to delete
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete Item'),
+                            content: const Text('Are you sure you want to delete this item?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                            ],
+                          ),
+                        );
+                        return confirm ?? false;
+                      }
+                      return true;
+                    },
+                    onDismissed: (direction) async {
+                      if (direction == DismissDirection.endToStart) {
+                        // Delete with undo
+                        final deletedItem = item;
+                        await mediaProvider.deleteItem(item.id!);
+                        if (context.mounted) {
+                          // ignore: use_build_context_synchronously
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Item deleted'),
+                              action: SnackBarAction(
+                                label: 'Undo',
+                                onPressed: () async {
+                                  await mediaProvider.addItem(deletedItem);
+                                },
+                              ),
+                            ),
+                          );
+                        }
+                      } else if (direction == DismissDirection.startToEnd) {
+                        // Mark as completed with undo
+                        final originalStatus = item.status;
+                        final updated = item.copyWith(status: 'Done');
+                        await mediaProvider.updateItem(updated);
+                        if (context.mounted) {
+                          // ignore: use_build_context_synchronously
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Marked as completed'),
+                              action: SnackBarAction(
+                                label: 'Undo',
+                                onPressed: () async {
+                                  final reverted = item.copyWith(status: originalStatus);
+                                  await mediaProvider.updateItem(reverted);
+                                },
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: MediaCard(
+                      item: item,
+                      isGrid: false,
+                      onLongPress: () async {
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (_, __, ___) => AddEditScreen(item: item),
+                            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+                            transitionDuration: const Duration(milliseconds: 250),
+                          ),
+                        );
+                      },
+                      onTap: () => Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (_, __, ___) => DetailsScreen(item: item),
+                          transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+                          transitionDuration: const Duration(milliseconds: 250),
+                        ),
                       ),
-                    );
-                    if (confirm == true) {
-                      await mediaProvider.deleteItem(filteredItems[index].id!);
-                      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Item deleted')));
-                    }
-                  },
-                  onTap: () => Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (_, __, ___) => DetailsScreen(item: filteredItems[index]),
-                      transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
-                      transitionDuration: const Duration(milliseconds: 250),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
             ),
           ),
         // Show indicator if more items are available
@@ -350,6 +462,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
       ],
+      ),
     );
   }
 

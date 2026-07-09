@@ -15,6 +15,8 @@ class MediaProvider with ChangeNotifier {
   String _searchQuery = '';
   String _statusFilter = 'All';
   String _languageFilter = 'All';
+  String _ratingFilter = 'All';
+  String _yearFilter = 'All';
   bool _isGridView = true;
   final Set<String> _selectedTags = <String>{};
   bool _mangaOnlyFilter = false;
@@ -72,6 +74,8 @@ class MediaProvider with ChangeNotifier {
   String get searchQuery => _searchQuery;
   String get statusFilter => _statusFilter;
   String get languageFilter => _languageFilter;
+  String get ratingFilter => _ratingFilter;
+  String get yearFilter => _yearFilter;
   bool get isGridView => _isGridView;
   List<String> get selectedTags => _selectedTags.toList(growable: false)..sort();
   bool get mangaOnlyFilter => _mangaOnlyFilter;
@@ -82,7 +86,7 @@ class MediaProvider with ChangeNotifier {
   List<MediaItem> _filteredItems({String? categoryOverride}) {
     final category = categoryOverride ?? _currentCategory;
     final cacheKey =
-        '$category|$_searchQuery|$_statusFilter|$_languageFilter|${_selectedTags.join(',')}|$_mangaOnlyFilter|$_webSeriesKindFilter|${_items.length}';
+        '$category|$_searchQuery|$_statusFilter|$_languageFilter|$_ratingFilter|$_yearFilter|${_selectedTags.join(',')}|$_mangaOnlyFilter|$_webSeriesKindFilter|${_items.length}';
     if (_filteredCache != null && _filteredCacheKey == cacheKey) return _filteredCache!;
     final query = _searchQuery.trim().toLowerCase();
     // Detect star rating intent in query, e.g., "5 stars", "4 star", "rating:3"
@@ -285,6 +289,43 @@ class MediaProvider with ChangeNotifier {
           }
           final matchesLanguage = _languageFilter == 'All' ||
               ((item.language ?? '').toLowerCase() == _languageFilter.toLowerCase());
+          
+          // Rating filter
+          bool matchesRating = true;
+          if (_ratingFilter != 'All') {
+            final rating = item.rating ?? 0;
+            if (_ratingFilter == '5 stars') {
+              matchesRating = rating == 5;
+            } else if (_ratingFilter == '4+ stars') {
+              matchesRating = rating >= 4;
+            } else if (_ratingFilter == '3+ stars') {
+              matchesRating = rating >= 3;
+            } else if (_ratingFilter == '2+ stars') {
+              matchesRating = rating >= 2;
+            } else if (_ratingFilter == '1+ stars') {
+              matchesRating = rating >= 1;
+            }
+          }
+          
+          // Year filter
+          bool matchesYear = true;
+          if (_yearFilter != 'All') {
+            final year = item.releaseYear ?? -1;
+            if (_yearFilter == '2020s') {
+              matchesYear = year >= 2020 && year <= 2029;
+            } else if (_yearFilter == '2010s') {
+              matchesYear = year >= 2010 && year <= 2019;
+            } else if (_yearFilter == '2000s') {
+              matchesYear = year >= 2000 && year <= 2009;
+            } else if (_yearFilter == '1990s') {
+              matchesYear = year >= 1990 && year <= 1999;
+            } else if (_yearFilter == '1980s') {
+              matchesYear = year >= 1980 && year <= 1989;
+            } else if (_yearFilter == 'Older') {
+              matchesYear = year < 1980;
+            }
+          }
+          
           final matchesSelectedTags = _selectedTags.isEmpty
               ? true
               : ((_selectedTags).every((t) => (item.tags ?? const <String>[]) 
@@ -302,7 +343,7 @@ class MediaProvider with ChangeNotifier {
           if (webSeriesKindFilter != 'All') {
             okWs = (item.type == 'Series' && (item.extra?['wsKind']?.toString() == webSeriesKindFilter));
           }
-          return matchesCategory && matchesSearch && matchesStatus && matchesLanguage && matchesSelectedTags && okManga && okWs;
+          return matchesCategory && matchesSearch && matchesStatus && matchesLanguage && matchesRating && matchesYear && matchesSelectedTags && okManga && okWs;
         })
         .toList(growable: false);
     _filteredCacheKey = cacheKey;
@@ -322,7 +363,7 @@ class MediaProvider with ChangeNotifier {
 
   Future<void> loadItems() async {
     try {
-      // Load in chunks to avoid UI jank for very large datasets
+      // Load all items with pagination for large datasets
       final all = await _databaseService.getItems();
       // Normalize legacy labels (status/type) and persist changes so UI is consistent everywhere
       final List<MediaItem> normalized = [];
@@ -496,6 +537,22 @@ class MediaProvider with ChangeNotifier {
     }
   }
 
+  void setRatingFilter(String filter) {
+    if (_ratingFilter != filter) {
+      _ratingFilter = filter;
+      _invalidateCache();
+      notifyListeners();
+    }
+  }
+
+  void setYearFilter(String filter) {
+    if (_yearFilter != filter) {
+      _yearFilter = filter;
+      _invalidateCache();
+      notifyListeners();
+    }
+  }
+
   void toggleView() {
     _isGridView = !_isGridView;
     notifyListeners();
@@ -506,6 +563,8 @@ class MediaProvider with ChangeNotifier {
     _searchQuery = '';
     _statusFilter = 'All';
     _languageFilter = 'All';
+    _ratingFilter = 'All';
+    _yearFilter = 'All';
     _selectedTags.clear();
     _selectionMode = false;
     _selectedIds.clear();

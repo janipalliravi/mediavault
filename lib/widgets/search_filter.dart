@@ -258,6 +258,89 @@ class _SearchFilterState extends State<SearchFilter> {
             ],
           ),
           SizedBox(height: gap),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: mediaProvider.ratingFilter,
+                  isDense: true,
+                  isExpanded: true,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Rating',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  ),
+                  items: ['All', '5 stars', '4+ stars', '3+ stars', '2+ stars', '1+ stars']
+                      .map((rating) => DropdownMenuItem(
+                        value: rating,
+                        child: Text(
+                          rating,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ))
+                      .toList(),
+                  onChanged: (value) => mediaProvider.setRatingFilter(value!),
+                ),
+              ),
+              const SizedBox(width: ThemeSpacing.gap12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: mediaProvider.yearFilter,
+                  isDense: true,
+                  isExpanded: true,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Year',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  ),
+                  items: ['All', '2020s', '2010s', '2000s', '1990s', '1980s', 'Older']
+                      .map((year) => DropdownMenuItem(
+                        value: year,
+                        child: Text(
+                          year,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ))
+                      .toList(),
+                  onChanged: (value) => mediaProvider.setYearFilter(value!),
+                ),
+              ),
+              const SizedBox(width: ThemeSpacing.gap12),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton(
+                  style: IconButton.styleFrom(
+                    side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                  ),
+                  onPressed: () {
+                    mediaProvider.setRatingFilter('All');
+                    mediaProvider.setYearFilter('All');
+                  },
+                  icon: const Icon(Icons.filter_alt_off),
+                  color: Theme.of(context).colorScheme.primary,
+                  tooltip: 'Clear filters',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: gap),
         ],
       ),
     );

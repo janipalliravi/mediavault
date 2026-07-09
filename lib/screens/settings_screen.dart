@@ -112,7 +112,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               if (ok == true && context.mounted) {
                 await context.read<SettingsProvider>().resetToDefaults();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings reset')));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings reset')));
+                }
               }
             },
           )
@@ -381,15 +383,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () async {
                   try {
                     final selectedDirectory = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Choose backup folder');
+                    if (!context.mounted) return;
                     if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
                       await context.read<SettingsProvider>().setBackupFolderPath(selectedDirectory);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup directory set to: $selectedDirectory')));
                       }
                     } else {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No directory selected')));
-                      }
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No directory selected')));
                     }
                   } catch (_) {
                     if (context.mounted) {
@@ -408,40 +409,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.file_upload_outlined),
                 title: const Text('Export Library'),
-                subtitle: const Text('Save your data as JSON'),
+                subtitle: const Text('Save your data as JSON or CSV'),
                 onTap: () async {
-                  final rows = await DatabaseService().exportAll();
-                  final jsonStr = jsonEncode(rows);
                   if (!mounted) return;
                   await showDialog(
                     // ignore: use_build_context_synchronously
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Export JSON'),
-                      content: SingleChildScrollView(child: Text(jsonStr)),
+                      title: const Text('Export Format'),
+                      content: const Text('Choose export format:'),
                       actions: [
                         TextButton(
                           onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: jsonStr));
-                            if (mounted) {
-                              // ignore: use_build_context_synchronously
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('JSON copied to clipboard')));
-                            }
+                            Navigator.pop(ctx);
+                            await _exportJSON();
                           },
-                          child: const Text('Copy'),
+                          child: const Text('JSON'),
                         ),
                         TextButton(
                           onPressed: () async {
-                            try {
-                              final dir = await getTemporaryDirectory();
-                              final file = File('${dir.path}/mediavault_export_${DateTime.now().millisecondsSinceEpoch}.json');
-                              await file.writeAsString(jsonStr);
-                              await Share.shareXFiles([XFile(file.path)], text: 'MediaVault export');
-                            } catch (_) {}
+                            Navigator.pop(ctx);
+                            await _exportCSV();
                           },
-                          child: const Text('Share/Download'),
+                          child: const Text('CSV'),
                         ),
-                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel'))
                       ],
                     ),
                   );
@@ -454,11 +446,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('Create an encrypted snapshot immediately'),
                 onTap: () async {
                   final ok = await BackupService().writeAutoBackup(force: true);
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(ok ? 'Backup created' : 'Backup failed')),
                   );
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Backup Location'),
+                subtitle: Consumer<SettingsProvider>(
+                  builder: (_, sp, __) => FutureBuilder<String>(
+                    future: getApplicationDocumentsDirectory().then((dir) => dir.path),
+                    builder: (context, snapshot) {
+                      final path = snapshot.data ?? 'Loading...';
+                      final backupPath = sp.backupFolderPath ?? path;
+                      return Text(backupPath);
+                    },
+                  ),
+                ),
+                onTap: () async {
+                  final dir = await getApplicationDocumentsDirectory();
+                  final path = dir.path;
+                  if (context.mounted) {
+                    // ignore: use_build_context_synchronously
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Backup location: $path'),
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'Copy',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: path));
+                          },
+                        ),
+                      ),
+                    );
+                  }
                 },
               ),
               ListTile(
@@ -475,7 +501,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await file.writeAsString(jsonStr);
                     if (!mounted) return;
                     // ignore: use_build_context_synchronously
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup saved: ${file.path}')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Backup saved: ${file.path}'),
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'Copy',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: file.path));
+                          },
+                        ),
+                      ),
+                    );
                   } catch (e) {
                     if (!mounted) return;
                     // ignore: use_build_context_synchronously
@@ -509,15 +546,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                     final decoded = jsonDecode(plain);
                     final list = decoded is List ? decoded : [decoded];
-                    final resultCounts = await context.read<MediaProvider>().importFromJsonDynamic(list);
-                    if (!mounted) return;
+                    
+                    // Convert base64 images back to files
+                    final dir = await getApplicationDocumentsDirectory();
+                    final processedList = <Map<String, dynamic>>[];
+                    
+                    for (final item in list) {
+                      final processedItem = Map<String, dynamic>.from(item);
+                      
+                      // Convert main image from base64
+                      if (processedItem['imagePath_base64'] != null && processedItem['imagePath_base64'].toString().isNotEmpty) {
+                        try {
+                          final bytes = base64Decode(processedItem['imagePath_base64'].toString());
+                          final imageFile = File('${dir.path}/mv_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                          await imageFile.writeAsBytes(bytes, flush: true);
+                          processedItem['imagePath'] = imageFile.path;
+                          processedItem.remove('imagePath_base64');
+                        } catch (e) {
+                          debugPrint('Failed to restore main image: $e');
+                        }
+                      }
+                      
+                      // Convert extra images from base64
+                      if (processedItem['images_base64'] != null && processedItem['images_base64'] is List) {
+                        final base64Images = processedItem['images_base64'] as List;
+                        final restoredImages = <String>[];
+                        for (final base64 in base64Images) {
+                          if (base64 != null && base64.toString().isNotEmpty) {
+                            try {
+                              final bytes = base64Decode(base64.toString());
+                              final imageFile = File('${dir.path}/mv_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                              await imageFile.writeAsBytes(bytes, flush: true);
+                              restoredImages.add(imageFile.path);
+                            } catch (e) {
+                              debugPrint('Failed to restore extra image: $e');
+                            }
+                          }
+                        }
+                        processedItem['images'] = restoredImages;
+                        processedItem.remove('images_base64');
+                      }
+                      
+                      processedList.add(processedItem);
+                    }
+                    
                     // ignore: use_build_context_synchronously
+                    final resultCounts = await context.read<MediaProvider>().importFromJsonDynamic(processedList);
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Restore complete: ${resultCounts['inserted']} added, ${resultCounts['updated']} updated, ${resultCounts['skipped']} skipped')),
                     );
                   } catch (e) {
-                    if (!mounted) return;
-                    // ignore: use_build_context_synchronously
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to restore backup: $e')));
                   }
                 },
@@ -540,15 +620,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     final content = await file.readAsString();
                     final decoded = jsonDecode(content);
                     final list = decoded is List ? decoded : [decoded];
-                    final counts = await context.read<MediaProvider>().importFromJsonDynamic(list);
-                    if (!mounted) return;
                     // ignore: use_build_context_synchronously
+                    final counts = await context.read<MediaProvider>().importFromJsonDynamic(list);
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Import complete: ${counts['inserted']} added, ${counts['updated']} updated, ${counts['skipped']} skipped')),
                     );
                   } catch (_) {
-                    if (!mounted) return;
-                    // ignore: use_build_context_synchronously
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to import file')));
                   }
                 },
@@ -576,15 +655,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final text = controller.text.trim();
                       if (text.isEmpty) return;
                       final decoded = jsonDecode(text);
-                      final result = await context.read<MediaProvider>().importFromJsonDynamic(decoded is List ? decoded : [decoded]);
-                      if (!mounted) return;
                       // ignore: use_build_context_synchronously
+                      final result = await context.read<MediaProvider>().importFromJsonDynamic(decoded is List ? decoded : [decoded]);
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Import complete: ${result['inserted']} added, ${result['updated']} updated, ${result['skipped']} skipped')),
                       );
                     } catch (e) {
-                      if (!mounted) return;
-                      // ignore: use_build_context_synchronously
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to import JSON')));
                     }
                   }
@@ -707,5 +785,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }),
     );
+  }
+
+  Future<void> _exportJSON() async {
+    final rows = await DatabaseService().exportAll();
+    final jsonStr = jsonEncode(rows);
+    if (!mounted) return;
+    await showDialog(
+      // ignore: use_build_context_synchronously
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Export JSON'),
+        content: SingleChildScrollView(child: Text(jsonStr, style: const TextStyle(fontFamily: 'monospace', fontSize: 10))),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: jsonStr));
+              if (mounted) {
+                // ignore: use_build_context_synchronously
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('JSON copied to clipboard')));
+              }
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                final dir = await getTemporaryDirectory();
+                final file = File('${dir.path}/mediavault_export_${DateTime.now().millisecondsSinceEpoch}.json');
+                await file.writeAsString(jsonStr);
+                await Share.shareXFiles([XFile(file.path)], text: 'MediaVault export');
+              } catch (_) {}
+            },
+            child: const Text('Share/Download'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportCSV() async {
+    try {
+      final rows = await DatabaseService().exportAll();
+      if (rows.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No data to export')));
+        }
+        return;
+      }
+
+      // CSV header
+      final csvHeader = 'ID,Title,Type,Status,Release Year,Watched Year,Language,Rating,Recommend,Added Date,Notes,Image Path,Extra,Images\n';
+      
+      // CSV rows
+      final csvRows = rows.map((row) {
+        final id = row['id']?.toString() ?? '';
+        final title = _escapeCSV(row['title']?.toString() ?? '');
+        final type = _escapeCSV(row['type']?.toString() ?? '');
+        final status = _escapeCSV(row['status']?.toString() ?? '');
+        final releaseYear = row['releaseYear']?.toString() ?? '';
+        final watchedYear = row['watchedYear']?.toString() ?? '';
+        final language = _escapeCSV(row['language']?.toString() ?? '');
+        final rating = row['rating']?.toString() ?? '';
+        final recommend = row['recommend']?.toString() ?? '';
+        final addedDate = row['addedDate']?.toString() ?? '';
+        final notes = _escapeCSV(row['notes']?.toString() ?? '');
+        final imagePath = _escapeCSV(row['imagePath']?.toString() ?? '');
+        final extra = _escapeCSV(row['extra']?.toString() ?? '');
+        final images = _escapeCSV(row['images']?.toString() ?? '');
+        
+        return '$id,$title,$type,$status,$releaseYear,$watchedYear,$language,$rating,$recommend,$addedDate,$notes,$imagePath,$extra,$images';
+      }).join('\n');
+
+      final csvContent = csvHeader + csvRows;
+      
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/mediavault_export_${DateTime.now().millisecondsSinceEpoch}.csv');
+      await file.writeAsString(csvContent);
+      
+      if (mounted) {
+        await Share.shareXFiles([XFile(file.path)], text: 'MediaVault CSV export');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      }
+    }
+  }
+
+  String _escapeCSV(String value) {
+    if (value.isEmpty) return '';
+    // Escape quotes and wrap in quotes if contains comma, quote, or newline
+    if (value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
   }
 }

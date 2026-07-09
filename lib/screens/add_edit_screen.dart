@@ -16,6 +16,7 @@ import '../services/android_permissions.dart';
 import '../services/image_search_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 
 /// AddEditScreen allows creating or editing a media item.
 /// It supports multi-image import with compression, URL normalization for trailer,
@@ -37,6 +38,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _releaseYearCtrl = TextEditingController();
   final _watchedYearCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  late quill.QuillController _quillController;
   String? _trailerUrl;
   String? _castText;
   final _seasonsCtrl = TextEditingController();
@@ -86,6 +88,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _releaseYearCtrl.text = item.releaseYear?.toString() ?? '';
       _watchedYearCtrl.text = item.watchedYear?.toString() ?? '';
       _notesCtrl.text = item.notes ?? '';
+      // Initialize Quill controller with existing notes
+      _quillController = quill.QuillController(
+        document: quill.Document()..insert(0, item.notes ?? ''),
+        selection: const TextSelection.collapsed(offset: 0),
+      );
       _type = _types.contains(item.type) ? item.type : _types.first;
       _status = _statuses.contains(item.status) ? item.status : 'Watch list';
       _rating = item.rating ?? 0.0;
@@ -106,6 +113,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
       }
     } else {
       _addedDate = DateTime.now();
+      _quillController = quill.QuillController(
+        document: quill.Document(),
+        selection: const TextSelection.collapsed(offset: 0),
+      );
     }
   }
 
@@ -116,6 +127,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     _releaseYearCtrl.dispose();
     _watchedYearCtrl.dispose();
     _notesCtrl.dispose();
+    _quillController.dispose();
     _seasonsCtrl.dispose();
     _episodesCtrl.dispose();
     super.dispose();
@@ -294,13 +306,30 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final searchController = TextEditingController(text: _titleCtrl.text);
     final imageSearchService = ImageSearchService();
     List<ImageSearchResult> searchResults = [];
+    final Set<int> selectedIndices = {};
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
+          // Auto-trigger search if title is not empty
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (searchController.text.trim().isNotEmpty && searchResults.isEmpty) {
+              final type = _type == 'Movies' ? 'movie' : 'tv';
+              final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
+              final results = await imageSearchService.searchMedia(
+                searchController.text.trim(),
+                type: type,
+                year: year,
+              );
+              if (ctx.mounted) {
+                setDialogState(() => searchResults = results);
+              }
+            }
+          });
+
           return AlertDialog(
-            title: const Text('Search for Poster'),
+            title: const Text('Search for Posters (Select Multiple)'),
             content: SizedBox(
               width: double.maxFinite,
               height: 500,
@@ -314,11 +343,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
                         icon: const Icon(Icons.search),
                         onPressed: () async {
                           if (searchController.text.trim().isEmpty) return;
-                          setDialogState(() => searchResults = []);
+                          setDialogState(() {
+                            searchResults = [];
+                            selectedIndices.clear();
+                          });
                           final type = _type == 'Movies' ? 'movie' : 'tv';
+                          final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
                           final results = await imageSearchService.searchMedia(
                             searchController.text.trim(),
                             type: type,
+                            year: year,
                           );
                           if (mounted) {
                             setDialogState(() => searchResults = results);
@@ -328,18 +362,25 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     ),
                     onSubmitted: (value) async {
                       if (value.trim().isEmpty) return;
-                      setDialogState(() => searchResults = []);
+                      setDialogState(() {
+                        searchResults = [];
+                        selectedIndices.clear();
+                      });
                       final type = _type == 'Movies' ? 'movie' : 'tv';
+                      final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
                       final results = await imageSearchService.searchMedia(
                         value.trim(),
                         type: type,
+                        year: year,
                       );
                       if (mounted) {
                         setDialogState(() => searchResults = results);
                       }
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+                  Text('Selected: ${selectedIndices.length} image(s)'),
+                  const SizedBox(height: 8),
                   Expanded(
                     child: searchResults.isEmpty
                         ? const Center(child: Text('Search for images above'))
@@ -353,20 +394,39 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             itemCount: searchResults.length,
                             itemBuilder: (context, index) {
                               final result = searchResults[index];
-                              final imageUrl = imageSearchService.getImageUrl(result.posterPath);
+                              final imageUrl = imageSearchService.getImageUrl(result.posterPath, source: result.source);
+                              final isSelected = selectedIndices.contains(index);
                               return GestureDetector(
-                                onTap: () async {
-                                  if (imageUrl.isEmpty) return;
-                                  // Store network URL directly instead of downloading
-                                  if (!mounted) return;
-                                  setState(() => _imagePath = imageUrl);
-                                  if (ctx.mounted) Navigator.pop(ctx);
+                                onTap: () {
+                                  setDialogState(() {
+                                    if (isSelected) {
+                                      selectedIndices.remove(index);
+                                    } else {
+                                      selectedIndices.add(index);
+                                    }
+                                  });
                                 },
-                                child: CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                                child: Stack(
+                                  children: [
+                                    CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                                    ),
+                                    if (isSelected)
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.check, color: Colors.white, size: 20),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               );
                             },
@@ -380,6 +440,50 @@ class _AddEditScreenState extends State<AddEditScreen> {
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Cancel'),
               ),
+              ElevatedButton(
+                onPressed: selectedIndices.isEmpty
+                    ? null
+                    : () async {
+                        // Download and save selected images
+                        final sortedIndices = selectedIndices.toList()..sort();
+                        if (sortedIndices.isNotEmpty) {
+                          try {
+                            final dir = await getApplicationDocumentsDirectory();
+                            final downloadedPaths = <String>[];
+                            
+                            for (final idx in sortedIndices) {
+                              final imageUrl = imageSearchService.getImageUrl(searchResults[idx].posterPath, source: searchResults[idx].source);
+                              if (imageUrl.isEmpty) continue;
+                              
+                              try {
+                                final response = await http.get(Uri.parse(imageUrl)).timeout(
+                                  const Duration(seconds: 10),
+                                );
+                                if (response.statusCode == 200) {
+                                  final file = File('${dir.path}/mv_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                                  await file.writeAsBytes(response.bodyBytes, flush: true);
+                                  downloadedPaths.add(file.path);
+                                }
+                              } catch (e) {
+                                debugPrint('Failed to download image: $e');
+                              }
+                            }
+                            
+                            if (downloadedPaths.isNotEmpty) {
+                              setState(() {
+                                _imagePath = downloadedPaths.first;
+                                _extraImages.clear();
+                                _extraImages.addAll(downloadedPaths.skip(1));
+                              });
+                            }
+                          } catch (e) {
+                            debugPrint('Error downloading images: $e');
+                          }
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                child: const Text('Done'),
+              ),
             ],
           );
         },
@@ -392,10 +496,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final provider = context.read<MediaProvider>();
-
-    // Note: We don't check for duplicates here anymore since the addItem method
-    // now handles season-aware duplicate detection. This allows items with
-    // the same title but different seasons to be added.
 
     final releaseYear = _releaseYearCtrl.text.trim().isEmpty ? null : int.parse(_releaseYearCtrl.text.trim());
     final watchedYear = _watchedYearCtrl.text.trim().isEmpty ? null : int.parse(_watchedYearCtrl.text.trim());
@@ -446,7 +546,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       watchedYear: watchedYear,
       language: _languageCtrl.text.trim().isEmpty ? null : _languageCtrl.text.trim(),
       rating: _rating,
-      notes: cleanedNotes.trim().isEmpty ? null : cleanedNotes.trim(),
+      notes: _quillController.document.toPlainText().trim().isEmpty ? null : _quillController.document.toPlainText().trim(),
       recommend: _recommend,
       imagePath: _imagePath,
       extra: extra.isEmpty ? null : extra,
@@ -455,6 +555,73 @@ class _AddEditScreenState extends State<AddEditScreen> {
     );
 
     if (widget.item == null) {
+      // Check for duplicates only when adding new items
+      final existingItems = provider.items;
+      final titleLower = newItem.title.toLowerCase();
+      final isSeries = newItem.type == 'Series' || newItem.type == 'Anime' || newItem.type == 'K-Drama';
+      final currentSeason = extra['seasons']?.toString();
+      
+      // Find potential duplicates
+      final duplicates = existingItems.where((item) {
+        if (item.id == newItem.id) return false; // Skip self if editing
+        if (item.title.toLowerCase() != titleLower) return false;
+        
+        // For series, check if it's a different season (allowed)
+        if (isSeries) {
+          final existingSeason = item.extra?['seasons']?.toString();
+          if (existingSeason != currentSeason) return false; // Different season, not a duplicate
+        }
+        
+        // For movies or same season series, it's a duplicate
+        return true;
+      }).toList();
+
+      if (duplicates.isNotEmpty) {
+        // Show duplicate warning dialog
+        final shouldSave = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Duplicate Detected'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isSeries 
+                    ? 'An item with the title "${newItem.title}" already exists in your library.'
+                    : 'A movie with the title "${newItem.title}" already exists in your library.',
+                ),
+                const SizedBox(height: 12),
+                if (isSeries && currentSeason != null)
+                  Text(
+                    'Current season: $currentSeason',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                if (isSeries)
+                  const Text(
+                    'Note: Different seasons of the same series are allowed.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                const SizedBox(height: 8),
+                const Text('Do you want to save this as a duplicate?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Save Anyway'),
+              ),
+            ],
+          ),
+        );
+        
+        if (shouldSave != true) return; // User cancelled
+      }
+
       await provider.addItem(newItem);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -765,14 +932,26 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _notesCtrl,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: _inputDecoration('Notes'),
-                    enableInteractiveSelection: true,
-                    contextMenuBuilder: (context, editableTextState) =>
-                        AdaptiveTextSelectionToolbar.editableText(
-                      editableTextState: editableTextState,
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        quill.QuillSimpleToolbar(
+                          controller: _quillController,
+                        ),
+                        Container(
+                          height: 150,
+                          padding: const EdgeInsets.all(8),
+                          child: quill.QuillEditor(
+                            controller: _quillController,
+                            scrollController: ScrollController(),
+                            focusNode: FocusNode(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: ThemeSpacing.gap16),

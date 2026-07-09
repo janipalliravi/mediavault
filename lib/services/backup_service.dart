@@ -10,7 +10,21 @@ import 'database_service.dart';
 class BackupService {
   final DatabaseService _db = DatabaseService();
 
-  /// Writes an unencrypted JSON backup to the selected folder.
+  /// Converts an image file to base64 string
+  Future<String?> _imageToBase64(String imagePath) async {
+    try {
+      if (imagePath.startsWith('http')) return null; // Skip network URLs
+      final file = File(imagePath);
+      if (!await file.exists()) return null;
+      final bytes = await file.readAsBytes();
+      return base64Encode(bytes);
+    } catch (e) {
+      debugPrint('Failed to convert image to base64: $e');
+      return null;
+    }
+  }
+
+  /// Writes an unencrypted JSON backup with embedded images to the selected folder.
   /// Keeps multiple versions by date; caller can clean older versions if desired.
   /// If [force] is true, runs even when auto-backup is disabled.
   Future<bool> writeAutoBackup({bool force = false}) async {
@@ -20,9 +34,40 @@ class BackupService {
       if (!enabled && !force) return false;
       final overridePath = prefs.getString('settings.backupFolderPath');
 
-      // Export all rows as unencrypted JSON
+      // Export all rows as unencrypted JSON with embedded images
       final rows = await _db.exportAll();
-      final jsonStr = jsonEncode(rows);
+      final rowsWithImages = <Map<String, dynamic>>[];
+      
+      for (final row in rows) {
+        final rowWithImages = Map<String, dynamic>.from(row);
+        
+        // Convert main image to base64
+        if (rowWithImages['imagePath'] != null && rowWithImages['imagePath'].toString().isNotEmpty) {
+          final base64 = await _imageToBase64(rowWithImages['imagePath'].toString());
+          if (base64 != null) {
+            rowWithImages['imagePath_base64'] = base64;
+            rowWithImages['imagePath'] = ''; // Clear original path
+          }
+        }
+        
+        // Convert extra images to base64
+        if (rowWithImages['images'] != null && rowWithImages['images'] is List) {
+          final images = rowWithImages['images'] as List;
+          final base64Images = <String>[];
+          for (final imgPath in images) {
+            if (imgPath != null && imgPath.toString().isNotEmpty) {
+              final base64 = await _imageToBase64(imgPath.toString());
+              if (base64 != null) base64Images.add(base64);
+            }
+          }
+          rowWithImages['images_base64'] = base64Images;
+          rowWithImages['images'] = []; // Clear original paths
+        }
+        
+        rowsWithImages.add(rowWithImages);
+      }
+      
+      final jsonStr = jsonEncode(rowsWithImages);
       // Use a single rolling filename inside the chosen folder to avoid many files
       const rollingFileName = 'mediavault_auto.mvb';
       // Use a timestamped name only for the fallback prompted save dialog

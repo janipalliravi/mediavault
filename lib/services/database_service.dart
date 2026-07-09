@@ -274,9 +274,14 @@ class DatabaseService {
   }
 
   /// CRUD Operations
-  Future<List<MediaItem>> getItems() async {
+  Future<List<MediaItem>> getItems({int? limit, int? offset}) async {
     final db = await database;
-    final maps = await db.query('media_items', orderBy: 'addedDate DESC');
+    final maps = await db.query(
+      'media_items',
+      orderBy: 'addedDate DESC',
+      limit: limit,
+      offset: offset,
+    );
     return maps.map((map) => MediaItem.fromMap(map)).toList();
   }
 

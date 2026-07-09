@@ -80,40 +80,6 @@ class RelatedItemsScreen extends StatelessWidget {
     return allItems;
   }
 
-  String _getSeasonDisplay(MediaItem item) {
-    // Check extra data first
-    if (item.extra != null) {
-      final seasons = item.extra!['seasons']?.toString();
-      if (seasons != null && seasons.trim().isNotEmpty) {
-        return seasons.trim();
-      }
-    }
-    
-    // Check title for season patterns
-    final title = item.title.toLowerCase();
-    final seasonPatterns = [
-      RegExp(r'season\s*(\d+)', caseSensitive: false),
-      RegExp(r's(\d+)', caseSensitive: false),
-      RegExp(r'part\s*(\d+)', caseSensitive: false),
-      RegExp(r'volume\s*(\d+)', caseSensitive: false),
-      RegExp(r'vol\.?\s*(\d+)', caseSensitive: false),
-    ];
-    
-    for (final pattern in seasonPatterns) {
-      final match = pattern.firstMatch(title);
-      if (match != null) {
-        return match.group(1) ?? '?';
-      }
-    }
-    
-    // Fallback to release year
-    if (item.releaseYear != null) {
-      return item.releaseYear.toString();
-    }
-    
-    return '?';
-  }
-
   void _showInfoDialog(BuildContext context) {
     showDialog(
       context: context,

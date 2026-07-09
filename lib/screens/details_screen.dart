@@ -64,7 +64,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
         _shareOverride = true;
         _shareDark = dark;
       });
-      await Future.delayed(const Duration(milliseconds: 50));
+      // Wait longer for images to load before capture
+      await Future.delayed(const Duration(milliseconds: 500));
       final boundary = shareKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return;
       final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
@@ -248,36 +249,56 @@ class _DetailsScreenState extends State<DetailsScreen> {
                     SizedBox(
                       height: 220,
                       width: double.infinity,
-                      child: PageView(
+                      child: Stack(
                         children: [
-                          if (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty)
-                            Hero(
-                              tag: 'media-${widget.item.id ?? widget.item.title}',
-                              child: widget.item.imagePath!.startsWith('http')
-                                  ? Image.network(
-                                      widget.item.imagePath!,
-                                      fit: BoxFit.contain,
-                                      alignment: Alignment.center,
-                                      cacheWidth: 800,
-                                      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
-                                    )
-                                  : Image.file(
-                                      File(widget.item.imagePath!),
-                                      fit: BoxFit.contain,
-                                      alignment: Alignment.center,
-                                      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
-                                    ),
+                          PageView(
+                            children: [
+                              if (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty)
+                                Hero(
+                                  tag: 'media-${widget.item.id ?? widget.item.title}',
+                                  child: widget.item.imagePath!.startsWith('http')
+                                      ? Image.network(
+                                          widget.item.imagePath!,
+                                          fit: BoxFit.contain,
+                                          alignment: Alignment.center,
+                                          cacheWidth: 800,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
+                                        )
+                                      : Image.file(
+                                          File(widget.item.imagePath!),
+                                          fit: BoxFit.contain,
+                                          alignment: Alignment.center,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
+                                        ),
+                                ),
+                              ...?(widget.item.images?.map(
+                                (p) => p.startsWith('http')
+                                    ? Image.network(
+                                        p,
+                                        fit: BoxFit.contain,
+                                        cacheWidth: 800,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
+                                      )
+                                    : Image.file(File(p), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48)),
+                              )),
+                            ],
+                          ),
+                          if ((widget.item.images?.length ?? 0) > 0 || (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty))
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${1 + (widget.item.images?.length ?? 0)} images',
+                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                ),
+                              ),
                             ),
-                          ...?(widget.item.images?.map(
-                            (p) => p.startsWith('http')
-                                ? Image.network(
-                                    p,
-                                    fit: BoxFit.contain,
-                                    cacheWidth: 800,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
-                                  )
-                                : Image.file(File(p), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48)),
-                          )),
                         ],
                       ),
                     ),
@@ -325,7 +346,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            _chip(context, widget.item.status == 'Completed' ? 'Done' : (widget.item.status == 'Plan to Watch' ? 'Watch list' : widget.item.status), Icons.flag),
+                            _chip(context, widget.item.status, Icons.flag),
                             if ((widget.item.language ?? '').isNotEmpty)
                               _chip(context, widget.item.language!, Icons.language),
                           ],
@@ -376,13 +397,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           _infoRow(context, 'Release Year', widget.item.releaseYear.toString(), forceWhite: _shareOverride && _shareDark),
                         if (widget.item.watchedYear != null)
                           _infoRow(context, 'Watched Year', widget.item.watchedYear.toString(), forceWhite: _shareOverride && _shareDark),
-                        if (_shareOverride && trailerUrl != null && trailerUrl.trim().isNotEmpty)
-                          _infoRow(
-                            context,
-                            'Link',
-                            _normalizeUrl(trailerUrl),
-                            forceWhite: _shareDark,
-                          ),
                         _infoRow(
                           context,
                           'Added',

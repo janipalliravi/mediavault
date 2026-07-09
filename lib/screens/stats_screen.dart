@@ -15,6 +15,9 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   String _type = 'All';
   String _status = 'All';
+  String _language = 'All';
+  String _rating = 'All';
+  bool _favoritesOnly = false;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +27,12 @@ class _StatsScreenState extends State<StatsScreen> {
     final items = allItems.where((it) {
       final okType = _type == 'All' || it.type == _type;
       final okStatus = _status == 'All' || it.status == _status;
-      return okType && okStatus;
+      final okLanguage = _language == 'All' || (it.language ?? '').trim() == _language;
+      final okRating = _rating == 'All' || 
+          (_rating == 'Rated' && (it.rating ?? 0) > 0) ||
+          (_rating == 'Unrated' && (it.rating ?? 0) == 0);
+      final okFavorite = !_favoritesOnly || it.favorite;
+      return okType && okStatus && okLanguage && okRating && okFavorite;
     }).toList(growable: false);
 
     Map<String, int> countBy(String Function(dynamic) keyOf) {
@@ -45,6 +53,28 @@ class _StatsScreenState extends State<StatsScreen> {
     final rated = items.where((it) => (it.rating ?? 0) > 0).toList();
     final avgRating = rated.isEmpty ? 0.0 : (rated.map((e) => e.rating!).reduce((a, b) => a + b) / rated.length);
     final favorites = items.where((it) => it.favorite).length;
+
+    // Year breakdown
+    final byReleaseYear = countBy((it) => (it.releaseYear?.toString() ?? 'Unknown'));
+    final byWatchedYear = countBy((it) => (it.watchedYear?.toString() ?? 'Not watched'));
+
+    // Monthly breakdown (by added date)
+    final byMonth = <String, int>{};
+    for (final it in items) {
+      if (it.addedDate != null) {
+        final monthKey = '${it.addedDate!.year}-${it.addedDate!.month.toString().padLeft(2, '0')}';
+        byMonth[monthKey] = (byMonth[monthKey] ?? 0) + 1;
+      }
+    }
+    final sortedMonths = byMonth.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+
+    // Rating distribution
+    final ratingDistribution = <String, int>{};
+    for (final it in items) {
+      final rating = (it.rating ?? 0).toInt();
+      final ratingKey = rating > 0 ? '$rating stars' : 'Unrated';
+      ratingDistribution[ratingKey] = (ratingDistribution[ratingKey] ?? 0) + 1;
+    }
 
     // Prepare sparkline data: ratings over time by addedDate
     final sorted = [...items]..sort((a, b) => (a.addedDate ?? DateTime(2000)).compareTo(b.addedDate ?? DateTime(2000)));
@@ -95,6 +125,25 @@ class _StatsScreenState extends State<StatsScreen> {
                     .map((s) => DropdownMenuItem<String>(value: s, child: Text(s)))
                     .toList(),
                 onChanged: (v) => setState(() => _status = v ?? 'All'),
+              ),
+              DropdownButton<String>(
+                value: _language,
+                items: ['All', ...allItems.map((e) => (e.language ?? '').trim()).where((e) => e.isNotEmpty).toSet().toList()..sort()]
+                    .map((l) => DropdownMenuItem<String>(value: l, child: Text(l)))
+                    .toList(),
+                onChanged: (v) => setState(() => _language = v ?? 'All'),
+              ),
+              DropdownButton<String>(
+                value: _rating,
+                items: const ['All', 'Rated', 'Unrated']
+                    .map((r) => DropdownMenuItem<String>(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (v) => setState(() => _rating = v ?? 'All'),
+              ),
+              FilterChip(
+                label: const Text('Favorites only'),
+                selected: _favoritesOnly,
+                onSelected: (v) => setState(() => _favoritesOnly = v),
               ),
             ],
           ),
@@ -164,7 +213,58 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
           section('By Type', byType),
           section('By Status', byStatus),
+          section('By Release Year', byReleaseYear),
+          section('By Watched Year', byWatchedYear),
+          section('Rating Distribution', ratingDistribution),
           section('Top Languages', byLanguage, take: 10),
+          if (sortedMonths.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(gap),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Items Added by Month', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: gap),
+                    SizedBox(
+                      height: 100,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: sortedMonths.length,
+                        itemBuilder: (context, index) {
+                          final entry = sortedMonths[index];
+                          return Container(
+                            width: 60,
+                            margin: const EdgeInsets.only(right: 8),
+                            child: Column(
+                              children: [
+                                Text(entry.key, style: const TextStyle(fontSize: 10)),
+                                const SizedBox(height: 4),
+                                Container(
+                                  height: 50,
+                                  width: 20,
+                                  alignment: Alignment.bottomCenter,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Container(
+                                    height: (entry.value / sortedMonths.map((e) => e.value).reduce((a, b) => a > b ? a : b)) * 50,
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text('${entry.value}', style: const TextStyle(fontSize: 10)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
