@@ -56,6 +56,8 @@ dependencies:
   permission_handler: ^11.3.1
   flutter_quill: ^11.5.0
   tmdb_api: ^2.2.1
+  fl_chart: ^0.66.2
+  csv: ^5.1.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

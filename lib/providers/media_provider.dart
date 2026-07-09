@@ -887,6 +887,33 @@ class MediaProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> bulkUpdateStatusSelected(String status) async {
+    final targets = _items.where((e) => e.id != null && _selectedIds.contains(e.id!));
+    for (final it in targets) {
+      final updated = it.copyWith(status: status);
+      await updateItem(updated);
+    }
+    notifyListeners();
+  }
+
+  Future<void> bulkUpdateTypeSelected(String type) async {
+    final targets = _items.where((e) => e.id != null && _selectedIds.contains(e.id!));
+    for (final it in targets) {
+      final updated = it.copyWith(type: type);
+      await updateItem(updated);
+    }
+    notifyListeners();
+  }
+
+  Future<void> bulkUpdateRatingSelected(double rating) async {
+    final targets = _items.where((e) => e.id != null && _selectedIds.contains(e.id!));
+    for (final it in targets) {
+      final updated = it.copyWith(rating: rating);
+      await updateItem(updated);
+    }
+    notifyListeners();
+  }
+
   // Subsection filter setters
   void toggleMangaOnly() {
     _mangaOnlyFilter = !_mangaOnlyFilter;

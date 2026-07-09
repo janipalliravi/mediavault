@@ -601,6 +601,103 @@ class _HomeScreenState extends State<HomeScreen>
                           ? null
                           : () => mediaProvider.bulkFavoriteSelected(false),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      tooltip: 'Bulk Edit',
+                      onPressed: mediaProvider.selectedIds.isEmpty
+                          ? null
+                          : () async {
+                              final result = await showDialog<String>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Bulk Edit'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ListTile(
+                                        title: const Text('Update Status'),
+                                        leading: const Icon(Icons.check_circle),
+                                        onTap: () => Navigator.pop(ctx, 'status'),
+                                      ),
+                                      ListTile(
+                                        title: const Text('Update Type'),
+                                        leading: const Icon(Icons.category),
+                                        onTap: () => Navigator.pop(ctx, 'type'),
+                                      ),
+                                      ListTile(
+                                        title: const Text('Update Rating'),
+                                        leading: const Icon(Icons.star),
+                                        onTap: () => Navigator.pop(ctx, 'rating'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                              if (result != null) {
+                                if (result == 'status') {
+                                  final status = await showDialog<String>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Select Status'),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: ['Done', 'Watching', 'Watch list', 'Dropped'].map((s) => 
+                                          ListTile(
+                                            title: Text(s),
+                                            onTap: () => Navigator.pop(ctx, s),
+                                          ),
+                                        ).toList(),
+                                      ),
+                                    ),
+                                  );
+                                  if (status != null) {
+                                    // ignore: use_build_context_synchronously
+                                    await mediaProvider.bulkUpdateStatusSelected(status);
+                                  }
+                                } else if (result == 'type') {
+                                  final type = await showDialog<String>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Select Type'),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: ['Movies', 'Series', 'Anime', 'K-Drama'].map((t) => 
+                                          ListTile(
+                                            title: Text(t),
+                                            onTap: () => Navigator.pop(ctx, t),
+                                          ),
+                                        ).toList(),
+                                      ),
+                                    ),
+                                  );
+                                  if (type != null) {
+                                    // ignore: use_build_context_synchronously
+                                    await mediaProvider.bulkUpdateTypeSelected(type);
+                                  }
+                                } else if (result == 'rating') {
+                                  final rating = await showDialog<double>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Select Rating'),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [1.0, 2.0, 3.0, 4.0, 5.0].map((r) => 
+                                          ListTile(
+                                            title: Text('$r stars'),
+                                            onTap: () => Navigator.pop(ctx, r),
+                                          ),
+                                        ).toList(),
+                                      ),
+                                    ),
+                                  );
+                                  if (rating != null) {
+                                    // ignore: use_build_context_synchronously
+                                    await mediaProvider.bulkUpdateRatingSelected(rating);
+                                  }
+                                }
+                              }
+                            },
+                    ),
                   ],
                 ),
               ],

@@ -15,6 +15,7 @@ import '../services/backup_service.dart';
 import '../services/android_permissions.dart';
 import '../theme/spacing.dart';
 import '../constants/features.dart';
+import 'analytics_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -361,6 +362,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ]),
             // Library & Backup
             _section(context, 'Library & Backup', [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.analytics_outlined),
+                title: const Text('View Analytics'),
+                subtitle: const Text('Statistics and charts'),
+                onTap: () async {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                  );
+                },
+              ),
               Consumer<SettingsProvider>(builder: (context, sp, _) {
                 return SwitchListTile(
                   value: sp.autoBackupEnabled,
@@ -437,6 +450,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   );
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('Export to CSV File'),
+                subtitle: const Text('Save as CSV file to device'),
+                onTap: () async {
+                  await _exportCSVFile();
                 },
               ),
               ListTile(
@@ -655,16 +677,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final text = controller.text.trim();
                       if (text.isEmpty) return;
                       final decoded = jsonDecode(text);
+                      final list = decoded is List ? decoded : [decoded];
                       // ignore: use_build_context_synchronously
-                      final result = await context.read<MediaProvider>().importFromJsonDynamic(decoded is List ? decoded : [decoded]);
+                      final counts = await context.read<MediaProvider>().importFromJsonDynamic(list);
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Import complete: ${result['inserted']} added, ${result['updated']} updated, ${result['skipped']} skipped')),
+                        SnackBar(content: Text('Import complete: ${counts['inserted']} added, ${counts['updated']} updated, ${counts['skipped']} skipped')),
                       );
-                    } catch (e) {
+                    } catch (_) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to import JSON')));
                     }
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.table_chart_outlined),
+                title: const Text('Import from CSV'),
+                subtitle: const Text('Import data from CSV file'),
+                onTap: () async {
+                  try {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['csv'],
+                    );
+                    if (result == null || result.files.isEmpty) return;
+                    final path = result.files.single.path;
+                    if (path == null) return;
+                    final file = File(path);
+                    final content = await file.readAsString();
+                    
+                    // Parse CSV manually
+                    final lines = content.split('\n');
+                    if (lines.isEmpty) return;
+                    
+                    final headers = lines.first.split(',').map((h) => h.trim()).toList();
+                    final jsonData = <Map<String, dynamic>>[];
+                    
+                    for (var i = 1; i < lines.length; i++) {
+                      final line = lines[i].trim();
+                      if (line.isEmpty) continue;
+                      
+                      final values = <String>[];
+                      String currentValue = '';
+                      bool inQuotes = false;
+                      
+                      for (var j = 0; j < line.length; j++) {
+                        final char = line[j];
+                        if (char == '"') {
+                          inQuotes = !inQuotes;
+                        } else if (char == ',' && !inQuotes) {
+                          values.add(currentValue.trim());
+                          currentValue = '';
+                        } else {
+                          currentValue += char;
+                        }
+                      }
+                      values.add(currentValue.trim());
+                      
+                      if (values.length == headers.length) {
+                        final item = <String, dynamic>{};
+                        for (var j = 0; j < headers.length; j++) {
+                          item[headers[j]] = values[j];
+                        }
+                        jsonData.add(item);
+                      }
+                    }
+                    
+                    if (jsonData.isEmpty) return;
+                    
+                    // ignore: use_build_context_synchronously
+                    final counts = await context.read<MediaProvider>().importFromJsonDynamic(jsonData);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('CSV import complete: ${counts['inserted']} added, ${counts['updated']} updated, ${counts['skipped']} skipped')),
+                    );
+                  } catch (_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to import CSV')));
                   }
                 },
               ),
@@ -866,6 +957,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
       
       if (mounted) {
         await Share.shareXFiles([XFile(file.path)], text: 'MediaVault CSV export');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _exportCSVFile() async {
+    try {
+      final rows = await DatabaseService().exportAll();
+      if (rows.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No data to export')));
+        }
+        return;
+      }
+
+      // CSV header
+      final csvHeader = 'ID,Title,Type,Status,Release Year,Watched Year,Language,Rating,Recommend,Added Date,Notes,Image Path,Extra,Images\n';
+      
+      // CSV rows
+      final csvRows = rows.map((row) {
+        final id = row['id']?.toString() ?? '';
+        final title = _escapeCSV(row['title']?.toString() ?? '');
+        final type = _escapeCSV(row['type']?.toString() ?? '');
+        final status = _escapeCSV(row['status']?.toString() ?? '');
+        final releaseYear = row['releaseYear']?.toString() ?? '';
+        final watchedYear = row['watchedYear']?.toString() ?? '';
+        final language = _escapeCSV(row['language']?.toString() ?? '');
+        final rating = row['rating']?.toString() ?? '';
+        final recommend = row['recommend']?.toString() ?? '';
+        final addedDate = row['addedDate']?.toString() ?? '';
+        final notes = _escapeCSV(row['notes']?.toString() ?? '');
+        final imagePath = _escapeCSV(row['imagePath']?.toString() ?? '');
+        final extra = _escapeCSV(row['extra']?.toString() ?? '');
+        final images = _escapeCSV(row['images']?.toString() ?? '');
+        
+        return '$id,$title,$type,$status,$releaseYear,$watchedYear,$language,$rating,$recommend,$addedDate,$notes,$imagePath,$extra,$images';
+      }).join('\n');
+
+      final csvContent = csvHeader + csvRows;
+      
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/mediavault_export_${DateTime.now().millisecondsSinceEpoch}.csv');
+      await file.writeAsString(csvContent);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('CSV saved to: ${file.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Copy',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: file.path));
+              },
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
