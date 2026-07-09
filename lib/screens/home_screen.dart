@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen>
   int _shuffleTick = 0;
   bool _dataReady = false;
   bool _shuffleEnabled = false;
+  String _sortBy = 'Title (A-Z)';
 
   @override
   void initState() {
@@ -124,8 +125,35 @@ class _HomeScreenState extends State<HomeScreen>
     if (data.shuffleOn) {
       filteredItems = List.of(data.items)..shuffle(Random(data.shuffleTick + data.category.hashCode));
     } else {
-      filteredItems = List.of(data.items)
-        ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      filteredItems = List.of(data.items);
+      switch (_sortBy) {
+        case 'Title (A-Z)':
+          filteredItems.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+          break;
+        case 'Title (Z-A)':
+          filteredItems.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+          break;
+        case 'Rating (High-Low)':
+          filteredItems.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
+          break;
+        case 'Rating (Low-High)':
+          filteredItems.sort((a, b) => (a.rating ?? 0).compareTo(b.rating ?? 0));
+          break;
+        case 'Date Added (Newest)':
+          filteredItems.sort((a, b) => (b.addedDate ?? DateTime(2000)).compareTo(a.addedDate ?? DateTime(2000)));
+          break;
+        case 'Date Added (Oldest)':
+          filteredItems.sort((a, b) => (a.addedDate ?? DateTime(2000)).compareTo(b.addedDate ?? DateTime(2000)));
+          break;
+        case 'Release Year (Newest)':
+          filteredItems.sort((a, b) => (b.releaseYear ?? 0).compareTo(a.releaseYear ?? 0));
+          break;
+        case 'Release Year (Oldest)':
+          filteredItems.sort((a, b) => (a.releaseYear ?? 0).compareTo(b.releaseYear ?? 0));
+          break;
+        default:
+          filteredItems.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      }
     }
 
     const int maxItemsToShow = 500; // Increased for better user experience
@@ -169,17 +197,54 @@ class _HomeScreenState extends State<HomeScreen>
         await mediaProvider.loadItems();
         setState(() {});
       },
-      child: CustomScrollView(
-        cacheExtent: 600,
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        slivers: [
+      child: Stack(
+        children: [
+          CustomScrollView(
+            cacheExtent: 600,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
         const SliverToBoxAdapter(child: SizedBox(height: gap)),
         SliverPersistentHeader(
           pinned: true,
           delegate: _PinnedHeaderDelegate(
-            child: const SearchFilter(),
-            minExtentHeight: headerHeight,
-            maxExtentHeight: headerHeight,
+            child: Column(
+              children: [
+                const SearchFilter(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    children: [
+                      const Text('Sort by: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 8),
+                      DropdownButton<String>(
+                        value: _sortBy,
+                        isDense: true,
+                        style: const TextStyle(fontSize: 14),
+                        items: const [
+                          'Title (A-Z)',
+                          'Title (Z-A)',
+                          'Rating (High-Low)',
+                          'Rating (Low-High)',
+                          'Date Added (Newest)',
+                          'Date Added (Oldest)',
+                          'Release Year (Newest)',
+                          'Release Year (Oldest)',
+                        ].map((sort) => DropdownMenuItem<String>(value: sort, child: Text(sort))).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _sortBy = value;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            minExtentHeight: headerHeight + 50,
+            maxExtentHeight: headerHeight + 50,
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: gap)),
@@ -462,6 +527,87 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
       ],
+      ),
+      if (mediaProvider.selectionMode)
+        Positioned(
+          bottom: 16,
+          right: 16,
+          left: 16,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('${mediaProvider.selectedIds.length} selected'),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        mediaProvider.clearSelection();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      tooltip: 'Delete Selected',
+                      onPressed: mediaProvider.selectedIds.isEmpty
+                          ? null
+                          : () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Delete Selected'),
+                                  content: Text('Delete ${mediaProvider.selectedIds.length} items?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await mediaProvider.bulkDeleteSelected();
+                              }
+                            },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.favorite),
+                      tooltip: 'Add to Favorites',
+                      onPressed: mediaProvider.selectedIds.isEmpty
+                          ? null
+                          : () => mediaProvider.bulkFavoriteSelected(true),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.favorite_border),
+                      tooltip: 'Remove from Favorites',
+                      onPressed: mediaProvider.selectedIds.isEmpty
+                          ? null
+                          : () => mediaProvider.bulkFavoriteSelected(false),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+    ],
       ),
     );
   }

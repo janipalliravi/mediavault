@@ -392,6 +392,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
                             .trim()
                             .isNotEmpty)
                           _infoRow(context, 'Cast', widget.item.extra!['cast'].toString(), forceWhite: _shareOverride && _shareDark),
+                        if ((widget.item.extra?['genres'] ?? '')
+                            .toString()
+                            .trim()
+                            .isNotEmpty)
+                          _infoRow(context, 'Genres', widget.item.extra!['genres'].toString(), forceWhite: _shareOverride && _shareDark),
                         SizedBox(height: gap),
                         if (widget.item.releaseYear != null)
                           _infoRow(context, 'Release Year', widget.item.releaseYear.toString(), forceWhite: _shareOverride && _shareDark),

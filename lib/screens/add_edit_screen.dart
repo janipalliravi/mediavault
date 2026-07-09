@@ -14,6 +14,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import '../services/android_permissions.dart';
 import '../services/image_search_service.dart';
+import '../services/tmdb_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -41,6 +42,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   late quill.QuillController _quillController;
   String? _trailerUrl;
   String? _castText;
+  String? _genresText;
   final _seasonsCtrl = TextEditingController();
   final _episodesCtrl = TextEditingController();
   final List<String> _extraImages = <String>[];
@@ -107,6 +109,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _webSeriesKind = (extra['wsKind'] as String?)?.trim();
       _trailerUrl = (extra['trailer'] as String? ?? '').trim().isEmpty ? null : (extra['trailer'] as String).trim();
       _castText = (extra['cast'] as String? ?? '').trim().isEmpty ? null : (extra['cast'] as String).trim();
+      _genresText = (extra['genres'] as String? ?? '').trim().isEmpty ? null : (extra['genres'] as String).trim();
       // Prefill images
       if (item.images != null && item.images!.isNotEmpty) {
         _extraImages.addAll(item.images!);
@@ -300,6 +303,106 @@ class _AddEditScreenState extends State<AddEditScreen> {
         );
       },
     );
+  }
+
+  Future<void> _autoFillFromTMDB() async {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a title first')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fetching data from TMDB...')),
+    );
+
+    try {
+      final tmdbService = TMDBService();
+      final data = await tmdbService.searchByTitle(title, type: _type);
+
+      if (data != null && mounted) {
+        setState(() {
+          // Fill title if better match found
+          if (data['title'] != null && data['title'].toString().isNotEmpty) {
+            _titleCtrl.text = data['title'];
+          }
+
+          // Fill release year
+          if (data['releaseDate'] != null || data['firstAirDate'] != null) {
+            final dateStr = (data['releaseDate'] ?? data['firstAirDate']).toString();
+            if (dateStr.isNotEmpty) {
+              final year = dateStr.split('-').first;
+              _releaseYearCtrl.text = year;
+            }
+          }
+
+          // Fill rating (convert from 10 scale to 5 scale)
+          if (data['rating'] != null) {
+            final tmdbRating = data['rating'] as double;
+            _rating = (tmdbRating / 2).clamp(0.0, 5.0);
+          }
+
+          // Fill cast
+          if (data['cast'] != null && data['cast'].toString().isNotEmpty) {
+            _castText = data['cast'];
+          }
+
+          // Fill genres (will be saved in extra field)
+          if (data['genres'] != null && (data['genres'] as List).isNotEmpty) {
+            _genresText = (data['genres'] as List).join(', ');
+          }
+
+          // Fill trailer
+          if (data['trailer'] != null && data['trailer'].toString().isNotEmpty) {
+            _trailerUrl = data['trailer'];
+          }
+
+          // Download and set poster image
+          if (data['posterPath'] != null && data['posterPath'].toString().isNotEmpty) {
+            _downloadAndSetImage(tmdbService.getPosterUrl(data['posterPath']));
+          }
+        });
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data auto-filled successfully')),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No data found on TMDB')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching data: $e')),
+      );
+    }
+  }
+
+  Future<void> _downloadAndSetImage(String imageUrl) async {
+    if (imageUrl.isEmpty) return;
+    try {
+      final response = await http.get(Uri.parse(imageUrl)).timeout(
+        const Duration(seconds: 15),
+      );
+      if (response.statusCode == 200) {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/mv_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await file.writeAsBytes(response.bodyBytes, flush: true);
+        if (mounted) {
+          setState(() {
+            _imagePath = file.path;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to download image: $e');
+    }
   }
 
   Future<void> _searchOnlineImage() async {
@@ -522,6 +625,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     }
     if ((_trailerUrl ?? '').trim().isNotEmpty) extra['trailer'] = normalizeUrl(_trailerUrl!);
     if ((_castText ?? '').trim().isNotEmpty) extra['cast'] = _castText!.trim();
+    if ((_genresText ?? '').trim().isNotEmpty) extra['genres'] = _genresText!.trim();
     // Store chapters vs episodes according to manga flag
     if (_type == 'Anime' && _isManga) {
       final ch = _episodesCtrl.text.trim();
@@ -536,6 +640,33 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final urlRegex = RegExp(r'(https?:\/\/\S+|www\.\S+|youtu\.be\/\S+|youtube\.com\S+)', caseSensitive: false);
     cleanedNotes = cleanedNotes.replaceAll(urlRegex, '').replaceAll(RegExp(r'\s{2,}'), ' ').trim();
 
+    // Validate and clean image paths - remove invalid/blank images
+    String? validImagePath = _imagePath;
+    if (validImagePath != null && validImagePath.isNotEmpty) {
+      if (validImagePath.startsWith('http')) {
+        // Keep network URLs as-is
+      } else {
+        // Validate local file exists
+        final file = File(validImagePath);
+        if (!file.existsSync()) {
+          validImagePath = null;
+        }
+      }
+    }
+
+    List<String> validExtraImages = [];
+    for (final path in _extraImages) {
+      if (path.isEmpty) continue;
+      if (path.startsWith('http')) {
+        validExtraImages.add(path);
+      } else {
+        final file = File(path);
+        if (file.existsSync()) {
+          validExtraImages.add(path);
+        }
+      }
+    }
+
     final newItem = MediaItem(
       id: widget.item?.id,
       title: _titleCtrl.text.trim(),
@@ -548,10 +679,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
       rating: _rating,
       notes: _quillController.document.toPlainText().trim().isEmpty ? null : _quillController.document.toPlainText().trim(),
       recommend: _recommend,
-      imagePath: _imagePath,
+      imagePath: validImagePath,
       extra: extra.isEmpty ? null : extra,
       // Tags removed per request
-      images: _extraImages.isEmpty ? null : List<String>.from(_extraImages),
+      images: validExtraImages.isEmpty ? null : List<String>.from(validExtraImages),
     );
 
     if (widget.item == null) {
@@ -659,6 +790,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
           title: Text(isEdit ? 'Edit Item' : 'Add Item'),
           backgroundColor: Theme.of(context).colorScheme.primary,
           actions: [
+            IconButton(
+              tooltip: 'Auto-fill from TMDB',
+              icon: const Icon(Icons.auto_awesome, color: Colors.white),
+              onPressed: _autoFillFromTMDB,
+            ),
             TextButton.icon(
               onPressed: _save,
               icon: const Icon(Icons.save, color: Colors.white),
@@ -927,6 +1063,25 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             ),
                           );
                           if (result != null) setState(() => _castText = result);
+                        },
+                      ),
+                      IconButton(
+                        tooltip: _genresText == null || _genresText!.isEmpty ? 'Add genres' : 'Edit genres',
+                        icon: const Icon(Icons.movie_filter_outlined),
+                        onPressed: () async {
+                          final controller = TextEditingController(text: _genresText ?? '');
+                          final result = await showDialog<String?>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Genres (comma separated)'),
+                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Action, Drama, Comedy, ...')),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+                              ],
+                            ),
+                          );
+                          if (result != null) setState(() => _genresText = result);
                         },
                       ),
                     ],

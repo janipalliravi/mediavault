@@ -296,12 +296,14 @@ class _MediaCardState extends State<MediaCard> {
                               (widget.item.extra?['manga']?.toString().toLowerCase() == 'true');
                           final String displayType = isManga ? 'Manga' : (widget.item.type == 'Movies' ? 'Movie' : widget.item.type);
                           final String statusLabel = widget.item.status;
+                          final genres = (widget.item.extra?['genres'] as String?)?.split(',').map((g) => g.trim()).where((g) => g.isNotEmpty).toList() ?? [];
                           return Wrap(
                             spacing: gap / 2,
                             runSpacing: 0,
                             children: [
                               _buildPill(context, displayType, fontSize: 11.0, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                               _buildPill(context, statusLabel, fontSize: 11.0, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                              ...genres.take(2).map((genre) => _buildPill(context, genre, fontSize: 10.0, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3))),
                             ],
                           );
                         }),
@@ -434,6 +436,7 @@ class _MediaCardState extends State<MediaCard> {
                           context,
                           widget.item.status,
                         ),
+                        ...((widget.item.extra?['genres'] as String?)?.split(',').map((g) => g.trim()).where((g) => g.isNotEmpty).take(1).map((genre) => _buildPill(context, genre)) ?? []),
                       ],
                     ),
                     SizedBox(height: gap / 4),
