@@ -634,6 +634,8 @@ class _HomeScreenState extends State<HomeScreen>
                                 ),
                               );
                               if (result != null) {
+                                final provider = mediaProvider;
+                                if (!mounted) return;
                                 if (result == 'status') {
                                   final status = await showDialog<String>(
                                     context: context,
@@ -650,11 +652,11 @@ class _HomeScreenState extends State<HomeScreen>
                                       ),
                                     ),
                                   );
-                                  if (status != null) {
-                                    // ignore: use_build_context_synchronously
-                                    await mediaProvider.bulkUpdateStatusSelected(status);
+                                  if (status != null && mounted) {
+                                    await provider.bulkUpdateStatusSelected(status);
                                   }
                                 } else if (result == 'type') {
+                                  if (!mounted) return;
                                   final type = await showDialog<String>(
                                     context: context,
                                     builder: (ctx) => AlertDialog(
@@ -670,11 +672,11 @@ class _HomeScreenState extends State<HomeScreen>
                                       ),
                                     ),
                                   );
-                                  if (type != null) {
-                                    // ignore: use_build_context_synchronously
-                                    await mediaProvider.bulkUpdateTypeSelected(type);
+                                  if (type != null && mounted) {
+                                    await provider.bulkUpdateTypeSelected(type);
                                   }
                                 } else if (result == 'rating') {
+                                  if (!mounted) return;
                                   final rating = await showDialog<double>(
                                     context: context,
                                     builder: (ctx) => AlertDialog(
@@ -690,9 +692,8 @@ class _HomeScreenState extends State<HomeScreen>
                                       ),
                                     ),
                                   );
-                                  if (rating != null) {
-                                    // ignore: use_build_context_synchronously
-                                    await mediaProvider.bulkUpdateRatingSelected(rating);
+                                  if (rating != null && mounted) {
+                                    await provider.bulkUpdateRatingSelected(rating);
                                   }
                                 }
                               }
