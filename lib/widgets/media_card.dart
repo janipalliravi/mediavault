@@ -222,6 +222,11 @@ class _MediaCardState extends State<MediaCard> {
                                   final mp = context.read<MediaProvider>();
                                   final updated = widget.item.copyWith(favorite: !widget.item.favorite);
                                   await mp.updateItem(updated);
+                                  // Reload items to ensure UI updates
+                                  await mp.loadItems();
+                                  if (mounted) {
+                            setState(() {});
+                          }
                                 },
                                 child: Container(
                                   decoration: BoxDecoration(
@@ -470,7 +475,7 @@ class _MediaCardState extends State<MediaCard> {
                 ),
               ),
               PopupMenuButton<String>(
-                onSelected: (value) => _handleMenu(value, context, currentFitPref),
+                onSelected: (value) async => await _handleMenu(value, context, currentFitPref),
                 itemBuilder: (ctx) => [
                   const PopupMenuItem(value: 'edit', child: Text('Edit')),
                   const PopupMenuItem(value: 'share', child: Text('Share')),
@@ -603,7 +608,7 @@ class _MediaCardState extends State<MediaCard> {
     );
   }
 
-  void _handleMenu(String value, BuildContext context, String currentFitPref) {
+  Future<void> _handleMenu(String value, BuildContext context, String currentFitPref) async {
     switch (value) {
       case 'share':
         Share.share('Check this out: ${widget.item.title}');
@@ -620,7 +625,13 @@ class _MediaCardState extends State<MediaCard> {
         break;
       case 'toggle_favorite':
         final updated = widget.item.copyWith(favorite: !widget.item.favorite);
-        context.read<MediaProvider>().updateItem(updated);
+        final mp = context.read<MediaProvider>();
+        await mp.updateItem(updated);
+        // Reload items to ensure UI updates
+        await mp.loadItems();
+        if (mounted) {
+          setState(() {});
+        }
         break;
     }
   }

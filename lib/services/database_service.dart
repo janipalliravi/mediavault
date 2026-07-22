@@ -307,6 +307,17 @@ class DatabaseService {
     );
   }
 
+  /// Migrate Unwatched items to Watch list
+  Future<void> migrateUnwatchedToWatchlist() async {
+    final db = await database;
+    await db.update(
+      'media_items',
+      {'status': 'Watch list'},
+      where: 'status = ?',
+      whereArgs: ['Unwatched'],
+    );
+  }
+
   Future<void> deleteItem(int id) async {
     final db = await database;
     await db.delete(

@@ -114,7 +114,6 @@ class MediaProvider with ChangeNotifier {
         .toSet();
 
     // Infer status/type/language/year tokens from query
-    bool wantsUnwatched = query.contains(RegExp(r'\bunwatched\b'));
     String? statusToken;
     if (query.contains(RegExp(r'\bdone\b'))) statusToken = 'Done';
     if (query.contains(RegExp(r'\bwatching\b'))) statusToken = 'Watching';
@@ -169,7 +168,7 @@ class MediaProvider with ChangeNotifier {
       out = out.replaceAll(starRegex, ' ');
       out = out.replaceAll(starPlus, ' ');
       // Remove status/type/decade/year tokens
-      out = out.replaceAll(RegExp(r'\bunwatched\b|\bcompleted\b|\bwatching\b|\bplan(\s*to\s*watch)?\b'), ' ');
+      out = out.replaceAll(RegExp(r'\bcompleted\b|\bwatching\b|\bplan(\s*to\s*watch)?\b'), ' ');
       out = out.replaceAll(RegExp(r'\banime\b|\bmovies?\b|\bk-?drama\b|\bweb\s*series\b|\bwebseries\b'), ' ');
       if (languageToken != null) {
         out = out.replaceAll(RegExp('\\b${RegExp.escape(languageToken)}\\b'), ' ');
@@ -213,14 +212,8 @@ class MediaProvider with ChangeNotifier {
       }
 
       bool tokensOk() {
-        // Status token logic: includes special unwatched
-        if (wantsUnwatched) {
-          final isPlan = item.status == 'Watch list';
-          final added = item.addedDate;
-          final cutoff = DateTime.now().subtract(const Duration(days: 90));
-          if (!(isPlan && (added != null && added.isBefore(cutoff)))) return false;
-        }
-        if (statusToken != null && !wantsUnwatched) {
+        // Status token logic
+        if (statusToken != null) {
           if (item.status != statusToken) return false;
         }
         if (typeToken != null && item.type != typeToken) return false;
@@ -268,22 +261,12 @@ class MediaProvider with ChangeNotifier {
           bool matchesCategory;
           if (category == 'All') {
             matchesCategory = true;
-          } else if (category == 'Unwatched') {
-            final isPlan = item.status == 'Watch list';
-            final added = item.addedDate;
-            final cutoff = DateTime.now().subtract(const Duration(days: 90));
-            matchesCategory = isPlan && (added != null && added.isBefore(cutoff));
           } else {
             matchesCategory = item.type == category;
           }
           bool matchesStatus;
           if (_statusFilter == 'All') {
             matchesStatus = true;
-          } else if (_statusFilter == 'Unwatched') {
-            final isPlan = item.status == 'Watch list';
-            final added = item.addedDate;
-            final cutoff = DateTime.now().subtract(const Duration(days: 90));
-            matchesStatus = isPlan && (added != null && added.isBefore(cutoff));
           } else {
             matchesStatus = item.status == _statusFilter;
           }

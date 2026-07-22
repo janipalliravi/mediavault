@@ -12,10 +12,19 @@ class AnalyticsScreen extends StatefulWidget {
 }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  String _watchedYearFilter = 'All';
+
   @override
   Widget build(BuildContext context) {
     final mediaProvider = Provider.of<MediaProvider>(context);
-    final items = mediaProvider.items;
+    // Get all items without filters for analytics
+    final allItems = mediaProvider.itemsForCategory('All');
+    
+    // Filter by watched year if selected
+    List<MediaItem> items = allItems;
+    if (_watchedYearFilter != 'All') {
+      items = allItems.where((item) => item.watchedYear?.toString() == _watchedYearFilter).toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -27,6 +36,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildYearFilter(allItems),
+            const SizedBox(height: 24),
             _buildOverviewCards(items),
             const SizedBox(height: 24),
             _buildTypeDistributionChart(items),
@@ -41,6 +52,41 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildYearFilter(List<MediaItem> allItems) {
+    // Extract unique watched years from all items
+    final Set<String> watchedYears = allItems
+        .map((item) => item.watchedYear?.toString())
+        .where((year) => year != null)
+        .cast<String>()
+        .toSet();
+    
+    final sortedYears = watchedYears.toList()..sort();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Filter by Watched Year',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        DropdownButton<String>(
+          value: _watchedYearFilter,
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem(value: 'All', child: Text('All Years')),
+            ...sortedYears.map((year) => DropdownMenuItem(value: year, child: Text(year))),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _watchedYearFilter = value ?? 'All';
+            });
+          },
+        ),
+      ],
     );
   }
 

@@ -9,43 +9,54 @@ class TMDBService {
     _tmdb = TMDB(ApiKeys(_apiKey, ''));
   }
 
-  Future<Map<String, dynamic>?> searchByTitle(String title, {String? type}) async {
+  Future<List<Map<String, dynamic>>> searchByTitle(String title, {String? type}) async {
     try {
-      Map<String, dynamic> result = {};
+      List<Map<String, dynamic>> results = [];
       
       if (type == 'Movies' || type == null) {
         final movies = await _tmdb.v3.search.queryMovies(title);
         if (movies['results'] != null && (movies['results'] as List).isNotEmpty) {
-          final movie = movies['results'][0];
-          result['title'] = movie['title'] ?? movie['original_title'];
-          result['overview'] = movie['overview'];
-          result['releaseDate'] = movie['release_date'];
-          result['posterPath'] = movie['poster_path'];
-          result['backdropPath'] = movie['backdrop_path'];
-          result['rating'] = movie['vote_average'];
-          result['genres'] = _extractGenres(movie['genre_ids']);
-          result['type'] = 'Movies';
-          result['id'] = movie['id'];
+          for (var movie in (movies['results'] as List).take(10)) {
+            results.add({
+              'title': movie['title'] ?? movie['original_title'],
+              'overview': movie['overview'],
+              'releaseDate': movie['release_date'],
+              'posterPath': movie['poster_path'],
+              'backdropPath': movie['backdrop_path'],
+              'rating': movie['vote_average'],
+              'genres': _extractGenres(movie['genre_ids']),
+              'type': 'Movies',
+              'id': movie['id'],
+              'originalLanguage': _getLanguageName(movie['original_language']),
+            });
+          }
         }
-      } else if (type == 'Series' || type == 'Anime' || type == 'K-Drama') {
+      }
+      
+      if (type == 'Series' || type == 'Anime' || type == 'K-Drama') {
         final tv = await _tmdb.v3.search.queryTvShows(title);
         if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {
-          final show = tv['results'][0];
-          result['title'] = show['name'] ?? show['original_name'];
-          result['overview'] = show['overview'];
-          result['firstAirDate'] = show['first_air_date'];
-          result['posterPath'] = show['poster_path'];
-          result['backdropPath'] = show['backdrop_path'];
-          result['rating'] = show['vote_average'];
-          result['genres'] = _extractGenres(show['genre_ids']);
-          result['type'] = type;
-          result['id'] = show['id'];
+          for (var show in (tv['results'] as List).take(10)) {
+            results.add({
+              'title': show['name'] ?? show['original_name'],
+              'overview': show['overview'],
+              'firstAirDate': show['first_air_date'],
+              'posterPath': show['poster_path'],
+              'backdropPath': show['backdrop_path'],
+              'rating': show['vote_average'],
+              'genres': _extractGenres(show['genre_ids']),
+              'type': type,
+              'id': show['id'],
+              'originalLanguage': _getLanguageName(show['original_language']),
+            });
+          }
         }
       }
 
-      if (result.isNotEmpty) {
+      // Get cast and trailer for each result
+      for (var result in results) {
         final id = result['id'];
-        if (id == null) return result;
+        if (id == null) continue;
         
         // Get cast information
         if (result['type'] == 'Movies') {
@@ -86,13 +97,13 @@ class TMDBService {
             }
           }
         }
-
-        return result;
       }
+
+      return results;
     } catch (e) {
       debugPrint('TMDB API Error: $e');
     }
-    return null;
+    return [];
   }
 
   List<String> _extractGenres(List<dynamic> genreIds) {
@@ -133,5 +144,44 @@ class TMDBService {
   String getBackdropUrl(String? path) {
     if (path == null || path.isEmpty) return '';
     return 'https://image.tmdb.org/t/p/w780$path';
+  }
+
+  String _getLanguageName(String? code) {
+    if (code == null || code.isEmpty) return '';
+    const languageMap = {
+      'en': 'English',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'zh': 'Chinese',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'ru': 'Russian',
+      'ar': 'Arabic',
+      'hi': 'Hindi',
+      'th': 'Thai',
+      'vi': 'Vietnamese',
+      'id': 'Indonesian',
+      'ms': 'Malay',
+      'tr': 'Turkish',
+      'pl': 'Polish',
+      'nl': 'Dutch',
+      'sv': 'Swedish',
+      'no': 'Norwegian',
+      'da': 'Danish',
+      'fi': 'Finnish',
+      'uk': 'Ukrainian',
+      'cs': 'Czech',
+      'el': 'Greek',
+      'he': 'Hebrew',
+      'bn': 'Bengali',
+      'ta': 'Tamil',
+      'te': 'Telugu',
+      'mr': 'Marathi',
+      'ur': 'Urdu',
+    };
+    return languageMap[code] ?? code;
   }
 }

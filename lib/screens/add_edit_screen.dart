@@ -15,6 +15,8 @@ import 'package:image/image.dart' as img;
 import '../services/android_permissions.dart';
 import '../services/image_search_service.dart';
 import '../services/tmdb_service.dart';
+import '../services/jikan_service.dart';
+import '../services/tvmaze_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -40,6 +42,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _watchedYearCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   late quill.QuillController _quillController;
+  final _notesFocusNode = FocusNode();
   String? _trailerUrl;
   String? _castText;
   String? _genresText;
@@ -97,7 +100,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       );
       _type = _types.contains(item.type) ? item.type : _types.first;
       _status = _statuses.contains(item.status) ? item.status : 'Watch list';
-      _rating = item.rating ?? 0.0;
+      _rating = item.rating ?? 0.0; // Use existing rating when editing
       _recommend = _recommendOpts.contains(item.recommend ?? '') ? (item.recommend ?? 'Maybe') : 'Maybe';
       _addedDate = item.addedDate ?? DateTime.now();
       _imagePath = item.imagePath;
@@ -110,9 +113,19 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _trailerUrl = (extra['trailer'] as String? ?? '').trim().isEmpty ? null : (extra['trailer'] as String).trim();
       _castText = (extra['cast'] as String? ?? '').trim().isEmpty ? null : (extra['cast'] as String).trim();
       _genresText = (extra['genres'] as String? ?? '').trim().isEmpty ? null : (extra['genres'] as String).trim();
-      // Prefill images
+      // Prefill images - filter out invalid/blank images
       if (item.images != null && item.images!.isNotEmpty) {
-        _extraImages.addAll(item.images!);
+        for (final path in item.images!) {
+          if (path.isEmpty) continue;
+          if (path.startsWith('http')) {
+            _extraImages.add(path);
+          } else {
+            final file = File(path);
+            if (file.existsSync()) {
+              _extraImages.add(path);
+            }
+          }
+        }
       }
     } else {
       _addedDate = DateTime.now();
@@ -131,6 +144,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     _watchedYearCtrl.dispose();
     _notesCtrl.dispose();
     _quillController.dispose();
+    _notesFocusNode.dispose();
     _seasonsCtrl.dispose();
     _episodesCtrl.dispose();
     super.dispose();
@@ -158,7 +172,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
       if (rating >= 5) return const Color(0xFFFFD700); // bright gold
       if (rating >= 4) return const Color(0xFFE6C200); // gold
       if (rating >= 3) return const Color(0xFFCCAA00); // dark gold/bronze
-      return Colors.grey.shade600; // dim for low ratings
+      if (rating >= 2) return Colors.grey.shade400; // grey for 2 stars
+      if (rating >= 1) return Colors.grey.shade600; // dark grey for 1 star
+      return Colors.grey.shade700; // darkest for 0 stars
     }
     return Row(
       children: List.generate(5, (i) {
@@ -166,7 +182,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
         final isFilled = _rating >= starIndex;
         return IconButton(
           icon: Icon(isFilled ? Icons.star : Icons.star_border),
-          color: starColorFor(_rating == 0 ? starIndex : _rating),
+          color: starColorFor(_rating),
           onPressed: () {
             setState(() {
               _rating = starIndex;
@@ -317,63 +333,195 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fetching data from TMDB...')),
+      const SnackBar(content: Text('Fetching data...')),
     );
 
     try {
-      final tmdbService = TMDBService();
-      final data = await tmdbService.searchByTitle(title, type: _type);
+      List<Map<String, dynamic>> results = [];
+      String apiName = '';
 
-      if (data != null && mounted) {
+      // Choose appropriate API based on type
+      if (_type == 'Anime' || _type == 'Anime') {
+        if (_isManga) {
+          final jikanService = JikanService();
+          results = await jikanService.searchManga(title);
+          apiName = 'Jikan (Manga)';
+        } else {
+          final jikanService = JikanService();
+          results = await jikanService.searchAnime(title);
+          apiName = 'Jikan (Anime)';
+        }
+      } else if (_type == 'Series' || _type == 'Series') {
+        final tvmazeService = TVMazeService();
+        results = await tvmazeService.searchShows(title);
+        apiName = 'TVMaze';
+      } else {
+        // Movies and K-Drama use TMDB
+        final tmdbService = TMDBService();
+        results = await tmdbService.searchByTitle(title, type: _type);
+        apiName = 'TMDB';
+      }
+
+      if (results.isEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No data found on $apiName')),
+        );
+        return;
+      }
+
+      Map<String, dynamic>? selectedData;
+
+      if (results.length == 1) {
+        selectedData = results.first;
+      } else {
+        // Show selection dialog for multiple results
+        if (!mounted) return;
+        selectedData = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('Select $_type'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: ListView.builder(
+                itemCount: results.length,
+                itemBuilder: (context, index) {
+                  final result = results[index];
+                  String year = 'N/A';
+                  String subtitle = '';
+                  String? posterUrl;
+
+                  if (_type == 'Anime') {
+                    year = result['year']?.toString() ?? 
+                           result['releaseDate']?.toString().split('-').first ?? 'N/A';
+                    posterUrl = result['posterPath'];
+                    subtitle = '${result['type'] ?? 'N/A'} • ${result['status'] ?? 'N/A'}';
+                  } else if (_type == 'Series') {
+                    year = result['releaseDate']?.toString().split('-').first ?? 'N/A';
+                    posterUrl = result['posterPath'];
+                    subtitle = '${result['network'] ?? 'N/A'} • ${result['language'] ?? 'N/A'}';
+                  } else {
+                    // TMDB
+                    year = result['releaseDate']?.toString().split('-').first ?? 
+                           result['firstAirDate']?.toString().split('-').first ?? 'N/A';
+                    final tmdbService = TMDBService();
+                    posterUrl = result['posterPath'] != null 
+                        ? tmdbService.getPosterUrl(result['posterPath'])
+                        : null;
+                    subtitle = result['originalLanguage'] ?? 'N/A';
+                  }
+                  
+                  return ListTile(
+                    leading: posterUrl != null && posterUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.network(
+                              posterUrl,
+                              width: 50,
+                              height: 75,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 50),
+                            ),
+                          )
+                        : const Icon(Icons.movie, size: 50),
+                    title: Text(result['title'] ?? 'Unknown'),
+                    subtitle: Text('$year • $subtitle'),
+                    onTap: () => Navigator.pop(ctx, result),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (selectedData != null && mounted) {
         setState(() {
           // Fill title if better match found
-          if (data['title'] != null && data['title'].toString().isNotEmpty) {
-            _titleCtrl.text = data['title'];
+          if (selectedData?['title'] != null && selectedData!['title'].toString().isNotEmpty) {
+            _titleCtrl.text = selectedData['title'];
           }
 
           // Fill release year
-          if (data['releaseDate'] != null || data['firstAirDate'] != null) {
-            final dateStr = (data['releaseDate'] ?? data['firstAirDate']).toString();
-            if (dateStr.isNotEmpty) {
+          String? dateStr = selectedData?['releaseDate']?.toString() ?? 
+                           selectedData?['firstAirDate']?.toString() ??
+                           selectedData?['year']?.toString();
+          if (dateStr != null && dateStr.isNotEmpty) {
+            if (dateStr.contains('-')) {
               final year = dateStr.split('-').first;
               _releaseYearCtrl.text = year;
+            } else {
+              _releaseYearCtrl.text = dateStr;
             }
           }
 
-          // Fill rating (convert from 10 scale to 5 scale)
-          if (data['rating'] != null) {
-            final tmdbRating = data['rating'] as double;
-            _rating = (tmdbRating / 2).clamp(0.0, 5.0);
-          }
+          // Rating is not auto-filled - user must enter manually
 
           // Fill cast
-          if (data['cast'] != null && data['cast'].toString().isNotEmpty) {
-            _castText = data['cast'];
+          if (selectedData?['cast'] != null && selectedData!['cast'].toString().isNotEmpty) {
+            _castText = selectedData['cast'];
+          } else if (selectedData?['studios'] != null && (selectedData!['studios'] as List).isNotEmpty) {
+            // For anime, use studios as cast
+            _castText = (selectedData['studios'] as List).join(', ');
+          } else if (selectedData?['authors'] != null && (selectedData!['authors'] as List).isNotEmpty) {
+            // For manga, use authors as cast
+            _castText = (selectedData['authors'] as List).join(', ');
           }
 
           // Fill genres (will be saved in extra field)
-          if (data['genres'] != null && (data['genres'] as List).isNotEmpty) {
-            _genresText = (data['genres'] as List).join(', ');
+          if (selectedData?['genres'] != null && (selectedData!['genres'] as List).isNotEmpty) {
+            _genresText = (selectedData['genres'] as List).join(', ');
           }
 
-          // Fill trailer
-          if (data['trailer'] != null && data['trailer'].toString().isNotEmpty) {
-            _trailerUrl = data['trailer'];
+          // Fill trailer (only TMDB has trailer)
+          if (selectedData?['trailer'] != null && selectedData!['trailer'].toString().isNotEmpty) {
+            _trailerUrl = selectedData['trailer'];
+          }
+
+          // Fill language
+          if (selectedData?['originalLanguage'] != null && selectedData!['originalLanguage'].toString().isNotEmpty) {
+            _languageCtrl.text = selectedData['originalLanguage'];
+          } else if (selectedData?['language'] != null && selectedData!['language'].toString().isNotEmpty) {
+            // TVMaze uses 'language' instead of 'originalLanguage'
+            _languageCtrl.text = selectedData['language'];
+          }
+
+          // Fill episodes for anime/series
+          if (selectedData?['episodes'] != null) {
+            _episodesCtrl.text = selectedData!['episodes'].toString();
+          }
+
+          // Fill chapters for manga
+          if (selectedData?['chapters'] != null && _isManga) {
+            _episodesCtrl.text = selectedData!['chapters'].toString();
           }
 
           // Download and set poster image
-          if (data['posterPath'] != null && data['posterPath'].toString().isNotEmpty) {
-            _downloadAndSetImage(tmdbService.getPosterUrl(data['posterPath']));
+          String? imageUrl;
+          if (selectedData?['posterPath'] != null && selectedData!['posterPath'].toString().isNotEmpty) {
+            if (_type == 'Anime' || _type == 'Series') {
+              // Jikan and TVMaze return full URLs
+              imageUrl = selectedData['posterPath'];
+            } else {
+              // TMDB returns relative paths
+              final tmdbService = TMDBService();
+              imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
+            }
+            if (imageUrl != null && imageUrl.isNotEmpty) {
+              _downloadAndSetImage(imageUrl);
+            }
           }
         });
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Data auto-filled successfully')),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No data found on TMDB')),
         );
       }
     } catch (e) {
@@ -761,6 +909,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
       }
     } else {
       await provider.updateItem(newItem);
+      // Reload items to ensure UI reflects the changes
+      await provider.loadItems();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Item updated')),
@@ -769,6 +919,26 @@ class _AddEditScreenState extends State<AddEditScreen> {
     }
 
     if (mounted) Navigator.of(context).pop({'type': newItem.type});
+  }
+
+  Future<bool> _showBackConfirmation() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text('You have unsaved changes. Are you sure you want to go back?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   @override
@@ -784,20 +954,29 @@ class _AddEditScreenState extends State<AddEditScreen> {
           end: Alignment.bottomCenter,
         ),
       ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: Text(isEdit ? 'Edit Item' : 'Add Item'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          actions: [
-            IconButton(
-              tooltip: 'Auto-fill from TMDB',
-              icon: const Icon(Icons.auto_awesome, color: Colors.white),
-              onPressed: _autoFillFromTMDB,
-            ),
-            TextButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save, color: Colors.white),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          final shouldPop = await _showBackConfirmation();
+          if (shouldPop && context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            title: Text(isEdit ? 'Edit Item' : 'Add Item'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            actions: [
+              IconButton(
+                tooltip: 'Auto-fill from TMDB',
+                icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                onPressed: _autoFillFromTMDB,
+              ),
+              TextButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save, color: Colors.white),
               label: const Text('Save', style: TextStyle(color: Colors.white)),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
@@ -845,6 +1024,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     decoration: _inputDecoration('Title *'),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Title is required' : null,
                     enableInteractiveSelection: true,
+                    textCapitalization: TextCapitalization.sentences,
                     contextMenuBuilder: (context, editableTextState) => AdaptiveTextSelectionToolbar.editableText(
                       editableTextState: editableTextState,
                     ),
@@ -907,6 +1087,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             controller: _seasonsCtrl,
                             style: const TextStyle(fontSize: 14),
                             keyboardType: TextInputType.number,
+                            textCapitalization: TextCapitalization.sentences,
                             decoration: _inputDecoration('Season'),
                             enableInteractiveSelection: true,
                             contextMenuBuilder: (context, editableTextState) => AdaptiveTextSelectionToolbar.editableText(
@@ -920,6 +1101,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             controller: _episodesCtrl,
                             style: const TextStyle(fontSize: 14),
                             keyboardType: TextInputType.number,
+                            textCapitalization: TextCapitalization.sentences,
                             decoration: _inputDecoration(_type == 'Anime' && _isManga ? 'Chapter' : 'Episodes'),
                             enableInteractiveSelection: true,
                             contextMenuBuilder: (context, editableTextState) => AdaptiveTextSelectionToolbar.editableText(
@@ -987,6 +1169,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     controller: _languageCtrl,
                     style: const TextStyle(fontSize: 14),
                     decoration: _inputDecoration('Language'),
+                    textCapitalization: TextCapitalization.sentences,
                     enableInteractiveSelection: true,
                     contextMenuBuilder: (context, editableTextState) => AdaptiveTextSelectionToolbar.editableText(
                       editableTextState: editableTextState,
@@ -1036,7 +1219,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Trailer / Link (URL)'),
-                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'https://...')),
+                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'https://...'), textCapitalization: TextCapitalization.sentences),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
                                 TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
@@ -1055,7 +1238,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Cast (comma separated)'),
-                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Name 1, Name 2, ...')),
+                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Name 1, Name 2, ...'), textCapitalization: TextCapitalization.sentences),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
                                 TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
@@ -1074,7 +1257,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Genres (comma separated)'),
-                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Action, Drama, Comedy, ...')),
+                              content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Action, Drama, Comedy, ...'), textCapitalization: TextCapitalization.sentences),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
                                 TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
@@ -1100,10 +1283,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
                         Container(
                           height: 150,
                           padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.grey.shade800 
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: quill.QuillEditor(
                             controller: _quillController,
                             scrollController: ScrollController(),
-                            focusNode: FocusNode(),
+                            focusNode: _notesFocusNode,
                           ),
                         ),
                       ],
@@ -1116,6 +1305,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

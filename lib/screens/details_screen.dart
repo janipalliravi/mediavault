@@ -29,6 +29,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
   final GlobalKey shareKey = GlobalKey();
   bool _shareOverride = false;
   bool _shareDark = true;
+  late MediaItem _currentItem;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentItem = widget.item;
+  }
 
   Future<MediaItem> _reloadItem(MediaProvider provider, int? id) async {
     await provider.loadItems();
@@ -48,9 +55,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   String? _shareLinkUrl() {
-    final t = (widget.item.extra?['trailer'] ?? '').toString().trim();
+    final t = (_currentItem.extra?['trailer'] ?? '').toString().trim();
     if (t.isNotEmpty) return _normalizeUrl(t);
-    final notes = widget.item.notes ?? '';
+    final notes = _currentItem.notes ?? '';
     final m = RegExp(r'https?://\S+').firstMatch(notes);
     if (m != null) return _normalizeUrl(m.group(0)!);
     return null;
@@ -58,7 +65,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   Future<void> _shareCapture({required bool dark}) async {
     final messenger = ScaffoldMessenger.of(context);
-    final linkUrl = _shareLinkUrl();
     try {
       setState(() {
         _shareOverride = true;
@@ -74,12 +80,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final pngBytes = byteData.buffer.asUint8List();
       final dir = await getTemporaryDirectory();
       final fname = dark ? 'mediacard_dark' : 'mediacard_light';
-      final file = File('${dir.path}/${fname}_${widget.item.id ?? DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File('${dir.path}/${fname}_${_currentItem.id ?? DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(pngBytes, flush: true);
-      final linkLine = linkUrl != null ? '\n$linkUrl' : '';
+      
+      // Share only the image card
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'Check this out: ${widget.item.title}$linkLine',
       );
     } catch (_) {
       if (messenger.mounted) {
@@ -96,24 +102,27 @@ class _DetailsScreenState extends State<DetailsScreen> {
     const double gap = ThemeSpacing.gap12;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.item.title),
+        title: Text(_currentItem.title),
         backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
             tooltip: 'Favorite',
             icon: Icon(
-              widget.item.favorite ? Icons.favorite : Icons.favorite_border,
-              color: widget.item.favorite ? Colors.red : Colors.white,
+              _currentItem.favorite ? Icons.favorite : Icons.favorite_border,
+              color: _currentItem.favorite ? Colors.red : Colors.white,
             ),
             onPressed: () async {
               final provider = Provider.of<MediaProvider>(context, listen: false);
-              final navigator = Navigator.of(context);
-              final updated = widget.item.copyWith(favorite: !widget.item.favorite);
+              final updated = _currentItem.copyWith(favorite: !_currentItem.favorite);
               await provider.updateItem(updated);
-              if (navigator.mounted) {
-                navigator.pushReplacement(
-                  MaterialPageRoute(builder: (_) => DetailsScreen(item: updated)),
-                );
+              // Reload items to ensure UI updates
+              await provider.loadItems();
+              // Update the current item
+              final reloadedItem = await _reloadItem(provider, _currentItem.id);
+              if (mounted) {
+                setState(() {
+                  _currentItem = reloadedItem;
+                });
               }
             },
           ),
@@ -123,9 +132,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
               final relatedGroups = mp.findRelatedItemGroups();
               final hasRelated = relatedGroups.any((group) => 
                 group.any((item) => 
-                  mp.normalizeTitle(item.title) == mp.normalizeTitle(widget.item.title) &&
-                  item.type == widget.item.type &&
-                  item.id != widget.item.id
+                  mp.normalizeTitle(item.title) == mp.normalizeTitle(_currentItem.title) &&
+                  item.type == _currentItem.type &&
+                  item.id != _currentItem.id
                 )
               );
               
@@ -187,11 +196,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => AddEditScreen(item: widget.item),
+                  builder: (_) => AddEditScreen(item: _currentItem),
                   fullscreenDialog: true,
                 ),
               );
-              final reloaded = await _reloadItem(provider, widget.item.id);
+              final reloaded = await _reloadItem(provider, _currentItem.id);
               if (navigator.mounted) {
                 // Replace current route safely without using context after await
                 navigator.pushReplacement(
@@ -225,7 +234,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 ),
               );
               if (confirm == true) {
-                await provider.deleteItem(widget.item.id!);
+                await provider.deleteItem(_currentItem.id!);
                 if (navigator.mounted) navigator.pop();
               }
             },
@@ -244,34 +253,58 @@ class _DetailsScreenState extends State<DetailsScreen> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if ((widget.item.images != null && widget.item.images!.isNotEmpty) ||
-                      (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty))
+                  if ((_currentItem.images != null && _currentItem.images!.isNotEmpty) ||
+                      (_currentItem.imagePath != null && _currentItem.imagePath!.isNotEmpty))
                     SizedBox(
                       height: 220,
                       width: double.infinity,
                       child: Stack(
                         children: [
+                          // Blur background using first image
+                          if (_currentItem.imagePath != null && _currentItem.imagePath!.isNotEmpty)
+                            Positioned.fill(
+                              child: _currentItem.imagePath!.startsWith('http')
+                                  ? Image.network(
+                                      _currentItem.imagePath!,
+                                      fit: BoxFit.contain,
+                                      cacheWidth: 200,
+                                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                                    )
+                                  : Image.file(
+                                      File(_currentItem.imagePath!),
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                                    ),
+                            ),
+                          // Blur effect
+                          if (_currentItem.imagePath != null && _currentItem.imagePath!.isNotEmpty)
+                            Positioned.fill(
+                              child: BackdropFilter(
+                                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: Container(color: Colors.black.withValues(alpha: 0.3)),
+                              ),
+                            ),
                           PageView(
                             children: [
-                              if (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty)
+                              if (_currentItem.imagePath != null && _currentItem.imagePath!.isNotEmpty)
                                 Hero(
-                                  tag: 'media-${widget.item.id ?? widget.item.title}',
-                                  child: widget.item.imagePath!.startsWith('http')
+                                  tag: 'media-${_currentItem.id ?? _currentItem.title}',
+                                  child: _currentItem.imagePath!.startsWith('http')
                                       ? Image.network(
-                                          widget.item.imagePath!,
+                                          _currentItem.imagePath!,
                                           fit: BoxFit.contain,
                                           alignment: Alignment.center,
                                           cacheWidth: 800,
                                           errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
                                         )
                                       : Image.file(
-                                          File(widget.item.imagePath!),
+                                          File(_currentItem.imagePath!),
                                           fit: BoxFit.contain,
                                           alignment: Alignment.center,
                                           errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
                                         ),
                                 ),
-                              ...?(widget.item.images?.map(
+                              ...?(_currentItem.images?.map(
                                 (p) => p.startsWith('http')
                                     ? Image.network(
                                         p,
@@ -283,32 +316,30 @@ class _DetailsScreenState extends State<DetailsScreen> {
                               )),
                             ],
                           ),
-                          if ((widget.item.images?.length ?? 0) > 0 || (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty))
-                            Positioned(
-                              bottom: 8,
-                              right: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${1 + (widget.item.images?.length ?? 0)} images',
-                                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                                ),
-                              ),
-                            ),
                         ],
                       ),
                     ),
-                  if (widget.item.imagePath == null || widget.item.imagePath!.isEmpty)
+                  if (_currentItem.imagePath == null || _currentItem.imagePath!.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 48.0),
                       child: Center(
-                        child: Image.asset(
-                          'assets/images/mediavault_logo.png',
-                          height: 120,
+                        child: Column(
+                          children: [
+                            Image.asset(
+                              'assets/images/mediavault_logo.png',
+                              height: 120,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _currentItem.title,
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: (_shareOverride && _shareDark)
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -321,7 +352,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.item.title,
+                          _currentItem.title,
                           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             color: (_shareOverride && _shareDark)
                                 ? Colors.white
@@ -331,10 +362,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
                         ),
-                        if (widget.item.rating != null) ...[
+                        if (_currentItem.rating != null) ...[
                           const SizedBox(height: 6),
                           RatingBarIndicator(
-                            rating: widget.item.rating ?? 0,
+                            rating: _currentItem.rating ?? 0,
                             itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.amber),
                             itemCount: 5,
                             itemSize: 20.0,
@@ -346,9 +377,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            _chip(context, widget.item.status, Icons.flag),
-                            if ((widget.item.language ?? '').isNotEmpty)
-                              _chip(context, widget.item.language!, Icons.language),
+                            _chip(context, _currentItem.status, Icons.flag),
+                            if ((_currentItem.language ?? '').isNotEmpty)
+                              _chip(context, _currentItem.language!, Icons.language),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -356,18 +387,18 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            if (widget.item.type == 'Movies')
+                            if (_currentItem.type == 'Movies')
                               _chip(context, 'Movie', Icons.movie),
-                            if (widget.item.type == 'Series')
+                            if (_currentItem.type == 'Series')
                               _chip(context, 'Series', Icons.live_tv),
-                            if (widget.item.type == 'Anime' && (widget.item.extra?['manga']?.toString().toLowerCase() == 'true'))
+                            if (_currentItem.type == 'Anime' && (_currentItem.extra?['manga']?.toString().toLowerCase() == 'true'))
                               _chip(context, 'Manga', Icons.bookmark),
-                            if (widget.item.type == 'Anime' && (widget.item.extra?['manga']?.toString().toLowerCase() != 'true'))
+                            if (_currentItem.type == 'Anime' && (_currentItem.extra?['manga']?.toString().toLowerCase() != 'true'))
                               _chip(context, 'Anime', Icons.animation),
-                            if (widget.item.type == 'K-Drama')
+                            if (_currentItem.type == 'K-Drama')
                               _chip(context, 'K-Drama', Icons.tv),
-                            if (widget.item.extra?['wsKind'] != null)
-                              _chip(context, widget.item.extra!['wsKind'].toString(), Icons.tv),
+                            if (_currentItem.extra?['wsKind'] != null)
+                              _chip(context, _currentItem.extra!['wsKind'].toString(), Icons.tv),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -375,43 +406,43 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            if (widget.item.extra?['seasons'] != null)
-                              _chip(context, 'Season: ${widget.item.extra!['seasons']}', Icons.movie_filter),
-                            if (widget.item.type == 'Anime' && (widget.item.extra?['manga']?.toString().toLowerCase() == 'true')) ...[
-                              if (widget.item.extra?['chapters'] != null)
-                                _chip(context, 'Chapter: ${widget.item.extra!['chapters']}', Icons.menu_book),
+                            if (_currentItem.extra?['seasons'] != null)
+                              _chip(context, 'Season: ${_currentItem.extra!['seasons']}', Icons.movie_filter),
+                            if (_currentItem.type == 'Anime' && (_currentItem.extra?['manga']?.toString().toLowerCase() == 'true')) ...[
+                              if (_currentItem.extra?['chapters'] != null)
+                                _chip(context, 'Chapter: ${_currentItem.extra!['chapters']}', Icons.menu_book),
                             ] else ...[
-                              if (widget.item.extra?['episodes'] != null)
-                                _chip(context, 'Episodes: ${widget.item.extra!['episodes']}', Icons.confirmation_num),
+                              if (_currentItem.extra?['episodes'] != null)
+                                _chip(context, 'Episodes: ${_currentItem.extra!['episodes']}', Icons.confirmation_num),
                             ],
                           ],
                         ),
                         SizedBox(height: gap),
-                        if ((widget.item.extra?['cast'] ?? '')
+                        if ((_currentItem.extra?['cast'] ?? '')
                             .toString()
                             .trim()
                             .isNotEmpty)
-                          _infoRow(context, 'Cast', widget.item.extra!['cast'].toString(), forceWhite: _shareOverride && _shareDark),
-                        if ((widget.item.extra?['genres'] ?? '')
+                          _infoRow(context, 'Cast', _currentItem.extra!['cast'].toString(), forceWhite: _shareOverride && _shareDark),
+                        if ((_currentItem.extra?['genres'] ?? '')
                             .toString()
                             .trim()
                             .isNotEmpty)
-                          _infoRow(context, 'Genres', widget.item.extra!['genres'].toString(), forceWhite: _shareOverride && _shareDark),
+                          _infoRow(context, 'Genres', _currentItem.extra!['genres'].toString(), forceWhite: _shareOverride && _shareDark),
                         SizedBox(height: gap),
-                        if (widget.item.releaseYear != null)
-                          _infoRow(context, 'Release Year', widget.item.releaseYear.toString(), forceWhite: _shareOverride && _shareDark),
-                        if (widget.item.watchedYear != null)
-                          _infoRow(context, 'Watched Year', widget.item.watchedYear.toString(), forceWhite: _shareOverride && _shareDark),
+                        if (_currentItem.releaseYear != null)
+                          _infoRow(context, 'Release Year', _currentItem.releaseYear.toString(), forceWhite: _shareOverride && _shareDark),
+                        if (_currentItem.watchedYear != null)
+                          _infoRow(context, 'Watched Year', _currentItem.watchedYear.toString(), forceWhite: _shareOverride && _shareDark),
                         _infoRow(
                           context,
                           'Added',
-                          widget.item.addedDate?.toLocal().toString().split(' ')[0] ?? 'N/A',
+                          _currentItem.addedDate?.toLocal().toString().split(' ')[0] ?? 'N/A',
                           forceWhite: _shareOverride && _shareDark,
                         ),
-                        if (widget.item.notes != null)
+                        if (_currentItem.notes != null)
                           Padding(
                             padding: EdgeInsets.only(top: gap),
-                            child: _infoRow(context, 'Notes', widget.item.notes!, forceWhite: _shareOverride && _shareDark),
+                            child: _infoRow(context, 'Notes', _currentItem.notes!, forceWhite: _shareOverride && _shareDark),
                           ),
                         SizedBox(height: gap),
                         if (trailerUrl != null && trailerUrl.trim().isNotEmpty)

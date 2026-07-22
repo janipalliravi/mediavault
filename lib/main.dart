@@ -14,6 +14,7 @@ import 'screens/splash_screen.dart';
 import 'screens/duplicates_screen.dart';
 import 'screens/related_items_screen.dart';
 import 'screens/stats_screen.dart';
+import 'services/database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,9 @@ void main() async {
   if (Platform.isAndroid) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
+
+  // Migrate Unwatched items to Watch list
+  await DatabaseService().migrateUnwatchedToWatchlist();
 
   final mediaProvider = MediaProvider();
   runApp(

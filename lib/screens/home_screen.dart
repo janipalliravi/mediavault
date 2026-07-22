@@ -219,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen>
                       DropdownButton<String>(
                         value: _sortBy,
                         isDense: true,
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
                         items: const [
                           'Title (A-Z)',
                           'Title (Z-A)',

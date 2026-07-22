@@ -1000,8 +1000,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final csvContent = csvHeader + csvRows;
       
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/mediavault_export_${DateTime.now().millisecondsSinceEpoch}.csv');
+      // Use file_picker to let user choose save location
+      final directoryPath = await FilePicker.platform.getDirectoryPath();
+      if (directoryPath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No directory selected')));
+        }
+        return;
+      }
+      
+      final file = File('$directoryPath/mediavault_export_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(csvContent);
       
       if (mounted) {
