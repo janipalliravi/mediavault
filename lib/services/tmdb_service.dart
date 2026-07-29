@@ -33,7 +33,7 @@ class TMDBService {
         }
       }
       
-      if (type == 'Series' || type == 'Anime' || type == 'Web Series') {
+      if (type == 'Series' || type == 'Anime' || type == 'K-Drama' || type == 'Web Series') {
         final tv = await _tmdb.v3.search.queryTvShows(title);
         debugPrint('TMDB TV search results for "$title" (type: $type): ${tv['results']?.length ?? 0} results');
         if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {

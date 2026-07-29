@@ -48,7 +48,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _episodesCtrl = TextEditingController();
   final List<String> _extraImages = <String>[];
 
-  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'Series', 'Web Series'];
+  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series', 'Web Series'];
   static const List<String> _statuses = AppConstants.statuses;
   static const List<String> _recommendOpts = AppConstants.recommendOptions;
 
