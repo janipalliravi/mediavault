@@ -332,13 +332,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 12),
                   const Expanded(child: Text('Carousel Interval', maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false)),
                   Builder(builder: (context) {
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
-                    final textStyle = TextStyle(color: isDark ? Colors.white : Colors.black87);
+                    final textStyle = TextStyle(color: Theme.of(context).colorScheme.onSurface);
                     final intervals = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10];
                     String labelFor(int v) => v == 0 ? 'Off' : '$v s';
                     return DropdownButton<int>(
                       value: sp.carouselIntervalSec,
-                      dropdownColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                      dropdownColor: Theme.of(context).colorScheme.surface,
                       items: intervals
                           .map((v) => DropdownMenuItem<int>(value: v, child: Text(labelFor(v), style: textStyle)))
                           .toList(),
@@ -792,14 +791,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     showDragHandle: true,
                     isScrollControlled: true,
                     builder: (ctx) {
-                      final isDark = Theme.of(ctx).brightness == Brightness.dark;
                       return DraggableScrollableSheet(
                         expand: false,
                         initialChildSize: 0.7,
                         minChildSize: 0.4,
                         maxChildSize: 0.9,
                         builder: (context, scrollController) => Container(
-                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           child: ListView(
                             controller: scrollController,
                             padding: const EdgeInsets.all(16),

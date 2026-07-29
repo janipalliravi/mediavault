@@ -109,7 +109,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
             tooltip: 'Favorite',
             icon: Icon(
               _currentItem.favorite ? Icons.favorite : Icons.favorite_border,
-              color: _currentItem.favorite ? Colors.red : Colors.white,
+              color: _currentItem.favorite ? Colors.red : Theme.of(context).colorScheme.onSurface,
             ),
             onPressed: () async {
               final provider = Provider.of<MediaProvider>(context, listen: false);
@@ -142,7 +142,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
               
               return IconButton(
                 tooltip: 'Related Items',
-                icon: const Icon(Icons.link, color: Colors.white),
+                icon: Icon(Icons.link, color: Theme.of(context).colorScheme.onSurface),
                 onPressed: () => Navigator.of(context).pushNamed('/related'),
               );
             },
@@ -268,12 +268,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                       _currentItem.imagePath!,
                                       fit: BoxFit.contain,
                                       cacheWidth: 200,
-                                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                                      errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                                     )
                                   : Image.file(
                                       File(_currentItem.imagePath!),
                                       fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                                      errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                                     ),
                             ),
                           // Blur effect
@@ -369,7 +369,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                             itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.amber),
                             itemCount: 5,
                             itemSize: 20.0,
-                            unratedColor: Colors.grey.shade300,
+                            unratedColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                           ),
                         ],
                         const SizedBox(height: 6),

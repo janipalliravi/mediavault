@@ -418,75 +418,81 @@ class _HomeScreenState extends State<HomeScreen>
 
           delegate: _PinnedHeaderDelegate(
 
-            child: Column(
+            child: Container(
 
-              children: [
+              color: Theme.of(context).scaffoldBackgroundColor,
 
-                const SearchFilter(),
+              child: Column(
 
-                Padding(
+                children: [
 
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  const SearchFilter(),
 
-                  child: Row(
+                  Padding(
 
-                    children: [
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
 
-                      const Text('Sort by: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    child: Row(
 
-                      const SizedBox(width: 8),
+                      children: [
 
-                      DropdownButton<String>(
+                        const Text('Sort by: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
 
-                        value: _sortBy,
+                        const SizedBox(width: 8),
 
-                        isDense: true,
+                        DropdownButton<String>(
 
-                        style: TextStyle(fontSize: 14, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
+                          value: _sortBy,
 
-                        items: const [
+                          isDense: true,
 
-                          'Title (A-Z)',
+                          style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
 
-                          'Title (Z-A)',
+                          items: const [
 
-                          'Rating (High-Low)',
+                            'Title (A-Z)',
 
-                          'Rating (Low-High)',
+                            'Title (Z-A)',
 
-                          'Date Added (Newest)',
+                            'Rating (High-Low)',
 
-                          'Date Added (Oldest)',
+                            'Rating (Low-High)',
 
-                          'Release Year (Newest)',
+                            'Date Added (Newest)',
 
-                          'Release Year (Oldest)',
+                            'Date Added (Oldest)',
 
-                        ].map((sort) => DropdownMenuItem<String>(value: sort, child: Text(sort))).toList(),
+                            'Release Year (Newest)',
 
-                        onChanged: (value) {
+                            'Release Year (Oldest)',
 
-                          if (value != null) {
+                          ].map((sort) => DropdownMenuItem<String>(value: sort, child: Text(sort))).toList(),
 
-                            setState(() {
+                          onChanged: (value) {
 
-                              _sortBy = value;
+                            if (value != null) {
 
-                            });
+                              setState(() {
 
-                          }
+                                _sortBy = value;
 
-                        },
+                              });
 
-                      ),
+                            }
 
-                    ],
+                          },
+
+                        ),
+
+                      ],
+
+                    ),
 
                   ),
 
-                ),
+                ],
 
-              ],
+              ),
 
             ),
 

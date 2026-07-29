@@ -784,14 +784,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   ),
                   const SizedBox(height: 8),
                   if (isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(16.0),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(width: 16),
-                          Text('Searching for images...', style: TextStyle(color: Colors.black)),
+                          const CircularProgressIndicator(),
+                          const SizedBox(width: 16),
+                          Text('Searching for images...', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                         ],
                       ),
                     ),
@@ -1052,9 +1052,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 if (isSeries)
-                  const Text(
+                  Text(
                     'Note: Different seasons of the same series are allowed.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                   ),
                 const SizedBox(height: 8),
                 const Text('Do you want to save this as a duplicate?'),
@@ -1169,11 +1169,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             height: 150,
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.8),
+                              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(ThemeSpacing.radius12),
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
                             ),
-                            child: const Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
+                            child: Icon(Icons.add_a_photo, size: 50, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                           )
                         : ClipRRect(
                             borderRadius: BorderRadius.circular(ThemeSpacing.radius12),
@@ -1205,7 +1205,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     value: _type,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     items: ([..._types]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
                         .map((t) => DropdownMenuItem(
@@ -1213,7 +1213,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                       child: Text(
                         t == 'Movies' ? 'Movie' : t,
                         style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
@@ -1228,14 +1228,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
                       value: _seriesSubType,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       items: _seriesSubTypes.map((t) => DropdownMenuItem(
                         value: t,
                         child: Text(
                           t,
                           style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                            color: Theme.of(context).colorScheme.onSurface,
                             overflow: TextOverflow.ellipsis,
                           ),
                         )
@@ -1284,7 +1284,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     value: _status,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     items: (() {
                       final list = [..._statuses];
@@ -1299,7 +1299,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                       child: Text(
                         s,
                         style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
@@ -1351,9 +1351,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                           .textTheme
                           .titleMedium
                           ?.copyWith(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white
-                                : Colors.black87,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                   ),
@@ -1370,9 +1368,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white
-                                      : Colors.black87,
+                                  color: Theme.of(context).colorScheme.onSurface,
                                 ),
                           ),
                         ),
@@ -1440,14 +1436,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   Container(
                     height: 150,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? Colors.grey.shade800 
-                          : Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: Theme.of(context).brightness == Brightness.dark 
-                            ? Colors.grey.shade600 
-                            : Colors.grey.shade300,
+                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
@@ -1460,7 +1452,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.all(12),
                       ),
-                      style: const TextStyle(fontSize: 14),
+                      style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
                     ),
                   ),
                   const SizedBox(height: ThemeSpacing.gap16),
