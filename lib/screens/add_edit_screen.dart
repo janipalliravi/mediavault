@@ -15,7 +15,7 @@ import 'package:image/image.dart' as img;
 import '../services/android_permissions.dart';
 import '../services/image_search_service.dart';
 import '../services/tmdb_service.dart';
-import '../services/jikan_service.dart';
+import '../services/anilist_service.dart';
 import '../services/tvmaze_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'package:http/http.dart' as http;
@@ -335,13 +335,13 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
       // Choose appropriate API based on type
       if (_type == 'Anime') {
-        final jikanService = JikanService();
-        results = await jikanService.searchAnime(title);
-        apiName = 'Jikan (Anime)';
+        final anilistService = AniListService();
+        results = await anilistService.searchAnime(title);
+        apiName = 'AniList (Anime)';
       } else if (_type == 'Manga') {
-        final jikanService = JikanService();
-        results = await jikanService.searchManga(title);
-        apiName = 'Jikan (Manga)';
+        final anilistService = AniListService();
+        results = await anilistService.searchManga(title);
+        apiName = 'AniList (Manga)';
       } else if (_type == 'Series' || _type == 'Web Series') {
         final tvmazeService = TVMazeService();
         results = await tvmazeService.searchShows(title);
