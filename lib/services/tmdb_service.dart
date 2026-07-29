@@ -35,9 +35,10 @@ class TMDBService {
       
       if (type == 'Series' || type == 'Anime' || type == 'K-Drama' || type == 'Web Series') {
         final tv = await _tmdb.v3.search.queryTvShows(title);
-        debugPrint('TMDB TV search results for "$title" (type: $type): ${tv['results']?.length ?? 0} results');
+        debugPrint('TMDB TV search for "$title" with type "$type": ${tv['results']?.length ?? 0} results');
         if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {
           for (var show in (tv['results'] as List).take(10)) {
+            debugPrint('Adding show: ${show['name']} (ID: ${show['id']})');
             results.add({
               'title': show['name'] ?? show['original_name'],
               'overview': show['overview'],
@@ -51,6 +52,8 @@ class TMDBService {
               'originalLanguage': _getLanguageName(show['original_language']),
             });
           }
+        } else {
+          debugPrint('No TV results found for "$title"');
         }
       }
 
@@ -81,14 +84,25 @@ class TMDBService {
             final seasonCount = seasons.where((s) => s['season_number'] != 0).length;
             result['seasons'] = seasonCount;
             
-            // Get total episodes from the last season or sum all episodes
-            int totalEpisodes = 0;
-            for (var season in seasons) {
-              if (season['season_number'] != 0 && season['episode_count'] != null) {
-                totalEpisodes += season['episode_count'] as int;
+            // Get episodes from season 1 only
+            final season1 = seasons.firstWhere(
+              (s) => s['season_number'] == 1,
+              orElse: () => null,
+            );
+            if (season1 != null && season1['episode_count'] != null) {
+              result['episodes'] = season1['episode_count'];
+              debugPrint('Season 1 episodes for ${result['title']}: ${season1['episode_count']}');
+            } else {
+              // Fallback: get episodes from first non-special season
+              final firstSeason = seasons.firstWhere(
+                (s) => s['season_number'] != 0,
+                orElse: () => null,
+              );
+              if (firstSeason != null && firstSeason['episode_count'] != null) {
+                result['episodes'] = firstSeason['episode_count'];
+                debugPrint('First season episodes for ${result['title']}: ${firstSeason['episode_count']}');
               }
             }
-            result['episodes'] = totalEpisodes;
           }
         }
 
