@@ -502,7 +502,7 @@ class _HomeScreenState extends State<HomeScreen>
 
         ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
 
         if (data.showStats)
 

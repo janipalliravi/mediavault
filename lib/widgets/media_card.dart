@@ -374,24 +374,56 @@ class _MediaCardState extends State<MediaCard> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Container(
+                child: SizedBox(
                   width: 96,
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: (() {
-                        final paths = _imagePaths();
-                        if (paths.isNotEmpty) {
-                          final p = paths.first;
-                          return p.startsWith('http')
-                              ? NetworkImage(p)
-                              : FileImage(File(p)) as ImageProvider;
-                        }
-                        return const AssetImage('assets/images/mediavault_logo.png');
-                      })(),
-                      fit: BoxFit.contain,
-                    ),
-                    color: Colors.grey[300],
-                  ),
+                  child: (() {
+                    final paths = _imagePaths();
+                    if (paths.isNotEmpty) {
+                      final p = paths.first;
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Blurred background image (cover)
+                          Positioned.fill(
+                            child: p.startsWith('http')
+                                ? CachedNetworkImage(
+                                    imageUrl: p,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 300,
+                                    fadeInDuration: const Duration(milliseconds: 180),
+                                    placeholder: (context, url) => Container(color: Colors.grey[300]),
+                                    errorWidget: (context, url, error) => Container(color: Colors.grey[300]),
+                                  )
+                                : Image.file(File(p), fit: BoxFit.cover, cacheWidth: 300, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300])),
+                          ),
+                          // Blur effect
+                          Positioned.fill(
+                            child: BackdropFilter(
+                              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Container(color: Colors.black.withValues(alpha: 0.1)),
+                            ),
+                          ),
+                          // Sharp foreground image (contain)
+                          Center(
+                            child: p.startsWith('http')
+                                ? CachedNetworkImage(
+                                    imageUrl: p,
+                                    fit: BoxFit.contain,
+                                    memCacheWidth: 300,
+                                    fadeInDuration: const Duration(milliseconds: 180),
+                                    placeholder: (context, url) => Container(color: Colors.grey[300]),
+                                    errorWidget: (context, url, error) => Container(color: Colors.grey[300]),
+                                  )
+                                : Image.file(File(p), fit: BoxFit.contain, cacheWidth: 300, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300])),
+                          ),
+                        ],
+                      );
+                    }
+                    return Container(
+                      color: Colors.grey[300],
+                      child: const FittedBox(child: Icon(Icons.image, size: 40, color: Colors.black26)),
+                    );
+                  })(),
                 ),
               ),
               SizedBox(width: gap),

@@ -266,13 +266,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
                               child: _currentItem.imagePath!.startsWith('http')
                                   ? Image.network(
                                       _currentItem.imagePath!,
-                                      fit: BoxFit.contain,
+                                      fit: BoxFit.cover,
                                       cacheWidth: 200,
                                       errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                                     )
                                   : Image.file(
                                       File(_currentItem.imagePath!),
-                                      fit: BoxFit.contain,
+                                      fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                                     ),
                             ),
