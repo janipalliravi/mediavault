@@ -17,6 +17,7 @@ import '../services/image_search_service.dart';
 import '../services/tmdb_service.dart';
 import '../services/jikan_service.dart';
 import '../services/tvmaze_service.dart';
+import '../utils/snackbar_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -200,9 +201,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       );
       if (!ok) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission required to access photos or camera')),
-        );
+        SnackbarHelper.showError(context, 'Permission required to access photos or camera');
         return;
       }
       final picker = ImagePicker();
@@ -234,7 +233,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to pick image')));
+      SnackbarHelper.showError(context, 'Failed to pick image');
     }
   }
 
@@ -243,9 +242,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       final ok = await AndroidPermissions.ensureForImagePicker(fromCamera: false);
       if (!ok) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission required to access photos')),
-        );
+        SnackbarHelper.showError(context, 'Permission required to access photos');
         return;
       }
       final picker = ImagePicker();
@@ -278,7 +275,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to import images')));
+      SnackbarHelper.showError(context, 'Failed to import images');
     }
   }
 
@@ -325,16 +322,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title first')),
-      );
+      SnackbarHelper.showWarning(context, 'Please enter a title first');
       return;
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fetching data...')),
-    );
+    SnackbarHelper.showInfo(context, 'Fetching data...');
 
     try {
       List<Map<String, dynamic>> results = [];
@@ -363,9 +356,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       }
 
       if (results.isEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No data found on $apiName')),
-        );
+        SnackbarHelper.showWarning(context, 'No data found on $apiName');
         return;
       }
 
@@ -520,15 +511,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
         });
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data auto-filled successfully')),
-        );
+        SnackbarHelper.showSuccess(context, 'Data auto-filled successfully');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching data: $e')),
-      );
+      SnackbarHelper.showError(context, 'Error fetching data: $e');
     }
   }
 
@@ -903,18 +890,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
       await provider.addItem(newItem);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$_type added')),
-        );
+        SnackbarHelper.showSuccess(context, '$_type added');
       }
     } else {
       await provider.updateItem(newItem);
       // Reload items to ensure UI reflects the changes
       await provider.loadItems();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item updated')),
-        );
+        SnackbarHelper.showSuccess(context, 'Item updated');
       }
     }
 
@@ -1288,6 +1271,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
                                 ? Colors.grey.shade800 
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.grey.shade600 
+                                  : Colors.grey.shade300,
+                              width: 1,
+                            ),
                           ),
                           child: quill.QuillEditor(
                             controller: _quillController,

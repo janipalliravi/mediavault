@@ -14,17 +14,26 @@ class SearchFilter extends StatefulWidget {
 
 class _SearchFilterState extends State<SearchFilter> {
   late final TextEditingController _searchController;
+  late final FocusNode _focusNode;
   bool _syncingFromProvider = false;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -72,32 +81,48 @@ class _SearchFilterState extends State<SearchFilter> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
-            controller: _searchController,
-            style: const TextStyle(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Search your catalog...',
-              prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
-              suffixIcon: mediaProvider.hasActiveSearch
-                  ? IconButton(
-                      tooltip: 'Clear search',
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => _clearSearch(mediaProvider),
-                    )
-                  : null,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              filled: true,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: _isFocused
+                  ? [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [],
             ),
-            onChanged: (q) {
-              if (_syncingFromProvider) return;
-              _applySearch(q, mediaProvider);
-            },
-            onSubmitted: (q) async {
-              try {
-                await Provider.of<SettingsProvider>(context, listen: false).addRecentSearch(q);
-              } catch (_) {}
-            },
+            child: TextField(
+              controller: _searchController,
+              focusNode: _focusNode,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Search your catalog...',
+                prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
+                suffixIcon: mediaProvider.hasActiveSearch
+                    ? IconButton(
+                        tooltip: 'Clear search',
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => _clearSearch(mediaProvider),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+              ),
+              onChanged: (q) {
+                if (_syncingFromProvider) return;
+                _applySearch(q, mediaProvider);
+              },
+              onSubmitted: (q) async {
+                try {
+                  await Provider.of<SettingsProvider>(context, listen: false).addRecentSearch(q);
+                } catch (_) {}
+              },
+            ),
           ),
           if (Provider.of<SettingsProvider>(context).recentSearches.isNotEmpty ||
               Provider.of<SettingsProvider>(context).savedSearches.isNotEmpty) ...[
