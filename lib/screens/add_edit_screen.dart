@@ -332,8 +332,13 @@ class _AddEditScreenState extends State<AddEditScreen> {
         final tvmazeService = TVMazeService();
         results = await tvmazeService.searchShows(title);
         apiName = 'TVMaze';
+      } else if (_type == 'K-Drama') {
+        // K-Drama uses TMDB TV search
+        final tmdbService = TMDBService();
+        results = await tmdbService.searchByTitle(title, type: _type);
+        apiName = 'TMDB';
       } else {
-        // Movies and K-Drama use TMDB
+        // Movies use TMDB
         final tmdbService = TMDBService();
         results = await tmdbService.searchByTitle(title, type: _type);
         apiName = 'TMDB';
@@ -467,9 +472,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
             _languageCtrl.text = selectedData['language'];
           }
 
-          // Fill episodes for anime/series
+          // Fill episodes for anime/series/k-drama
           if (selectedData?['episodes'] != null) {
             _episodesCtrl.text = selectedData!['episodes'].toString();
+          }
+
+          // Fill seasons for series/k-drama
+          if (selectedData?['seasons'] != null && (_type == 'Series' || _type == 'Web Series' || _type == 'K-Drama')) {
+            _seasonsCtrl.text = selectedData!['seasons'].toString();
           }
 
           // Fill chapters for manga
@@ -480,11 +490,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
           // Download and set poster image
           String? imageUrl;
           if (selectedData?['posterPath'] != null && selectedData!['posterPath'].toString().isNotEmpty) {
-            if (_type == 'Anime' || _type == 'Manga' || _type == 'Series' || _type == 'Web Series') {
-              // Jikan and TVMaze return full URLs
-              imageUrl = selectedData['posterPath'];
+            if (_type == 'Anime' || _type == 'Manga' || _type == 'Series' || _type == 'Web Series' || _type == 'K-Drama') {
+              // Jikan and TVMaze return full URLs, TMDB for K-Drama also returns full URLs after processing
+              if (_type == 'K-Drama') {
+                final tmdbService = TMDBService();
+                imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
+              } else {
+                imageUrl = selectedData['posterPath'];
+              }
             } else {
-              // TMDB returns relative paths
+              // TMDB returns relative paths for Movies
               final tmdbService = TMDBService();
               imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
             }

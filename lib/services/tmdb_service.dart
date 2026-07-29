@@ -54,7 +54,7 @@ class TMDBService {
         }
       }
 
-      // Get cast and trailer for each result
+      // Get cast, trailer, and seasons/episodes for each result
       for (var result in results) {
         final id = result['id'];
         if (id == null) continue;
@@ -71,6 +71,24 @@ class TMDBService {
           if (credits['cast'] != null) {
             final castList = credits['cast'].take(5).map((c) => c['name']).toList();
             result['cast'] = castList.join(', ');
+          }
+          
+          // Get seasons and episodes for TV shows
+          final details = await _tmdb.v3.tv.getDetails(id);
+          final seasons = details['seasons'] as List?;
+          if (seasons != null && seasons.isNotEmpty) {
+            // Count total seasons (excluding specials with season number 0)
+            final seasonCount = seasons.where((s) => s['season_number'] != 0).length;
+            result['seasons'] = seasonCount;
+            
+            // Get total episodes from the last season or sum all episodes
+            int totalEpisodes = 0;
+            for (var season in seasons) {
+              if (season['season_number'] != 0 && season['episode_count'] != null) {
+                totalEpisodes += season['episode_count'] as int;
+              }
+            }
+            result['episodes'] = totalEpisodes;
           }
         }
 
