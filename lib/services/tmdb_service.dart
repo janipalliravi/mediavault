@@ -135,9 +135,60 @@ class TMDBService {
 
       return results;
     } catch (e) {
-      debugPrint('TMDB API Error: $e');
+      debugPrint('TMDB search error: $e');
+      return [];
     }
-    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> searchMulti(String title) async {
+    try {
+      List<Map<String, dynamic>> results = [];
+      
+      final multi = await _tmdb.v3.search.queryMulti(title);
+      debugPrint('TMDB multi-search for "$title": ${multi['results']?.length ?? 0} results');
+      
+      if (multi['results'] != null && (multi['results'] as List).isNotEmpty) {
+        for (var item in (multi['results'] as List).take(20)) {
+          final mediaType = item['media_type']; // 'movie', 'tv', 'person'
+          
+          if (mediaType == 'movie') {
+            results.add({
+              'title': item['title'] ?? item['original_title'],
+              'overview': item['overview'],
+              'releaseDate': item['release_date'],
+              'posterPath': item['poster_path'],
+              'backdropPath': item['backdrop_path'],
+              'rating': item['vote_average'],
+              'genres': _extractGenres(item['genre_ids']),
+              'type': 'Movies',
+              'mediaType': 'movie',
+              'id': item['id'],
+              'originalLanguage': _getLanguageName(item['original_language']),
+            });
+          } else if (mediaType == 'tv') {
+            results.add({
+              'title': item['name'] ?? item['original_name'],
+              'overview': item['overview'],
+              'firstAirDate': item['first_air_date'],
+              'posterPath': item['poster_path'],
+              'backdropPath': item['backdrop_path'],
+              'rating': item['vote_average'],
+              'genres': _extractGenres(item['genre_ids']),
+              'type': 'Series',
+              'mediaType': 'tv',
+              'id': item['id'],
+              'originalLanguage': _getLanguageName(item['original_language']),
+            });
+          }
+          // Skip 'person' results
+        }
+      }
+      
+      return results;
+    } catch (e) {
+      debugPrint('TMDB multi-search error: $e');
+      return [];
+    }
   }
 
   List<String> _extractGenres(List<dynamic> genreIds) {

@@ -344,10 +344,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
           apiName = 'TVMaze';
         }
       } else if (_type == 'K-Drama') {
-        // K-Drama uses TMDB TV search (treat as Series since TMDB has no K-Drama type)
-        debugPrint('K-Drama type detected, calling TMDB with type: Series');
+        // K-Drama uses TMDB multi-search (no type filter - returns movies, TV shows, etc.)
+        debugPrint('K-Drama type detected, calling TMDB multi-search');
         final tmdbService = TMDBService();
-        results = await tmdbService.searchByTitle(title, type: 'Series');
+        results = await tmdbService.searchMulti(title);
         apiName = 'TMDB';
       } else {
         // Movies use TMDB
@@ -395,7 +395,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     if (_type == 'Series') {
                       subtitle = '${result['network'] ?? 'N/A'} • ${result['language'] ?? 'N/A'}';
                     } else {
-                      subtitle = '${result['originalLanguage'] ?? 'N/A'} • ${result['firstAirDate']?.toString().split('-').first ?? 'N/A'}';
+                      // K-Drama multi-search results - show media type
+                      final mediaType = result['mediaType'] == 'movie' ? 'Movie' : 'TV Series';
+                      subtitle = '$mediaType • ${result['originalLanguage'] ?? 'N/A'}';
                     }
                   } else {
                     // TMDB
@@ -528,7 +530,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                 imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
               }
             } else if (_type == 'K-Drama') {
-              // K-Drama uses TMDB (relative paths)
+              // K-Drama multi-search uses TMDB (relative paths)
               final tmdbService = TMDBService();
               imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
             } else {
