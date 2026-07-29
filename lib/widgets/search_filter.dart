@@ -112,6 +112,7 @@ class _SearchFilterState extends State<SearchFilter> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 filled: true,
+                fillColor: Theme.of(context).colorScheme.surface,
               ),
               onChanged: (q) {
                 if (_syncingFromProvider) return;
@@ -217,6 +218,7 @@ class _SearchFilterState extends State<SearchFilter> {
                     labelText: 'Status',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   ),
                   items: (['All', 'Unwatched', 'Done', 'Watch list', 'Watching']
@@ -249,6 +251,7 @@ class _SearchFilterState extends State<SearchFilter> {
                     labelText: 'Language',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   ),
                   items: languages.map((l) => DropdownMenuItem(
@@ -298,6 +301,7 @@ class _SearchFilterState extends State<SearchFilter> {
                     labelText: 'Rating',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   ),
                   items: ['All', '5 stars', '4+ stars', '3+ stars', '2+ stars', '1+ stars']
@@ -329,6 +333,7 @@ class _SearchFilterState extends State<SearchFilter> {
                     labelText: 'Year',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   ),
                   items: ['All', '2020s', '2010s', '2000s', '1990s', '1980s', 'Older']

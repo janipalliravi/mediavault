@@ -508,7 +508,7 @@ class _MediaCardState extends State<MediaCard> {
       if (widget.item.imagePath!.startsWith('http')) {
         return CachedNetworkImage(
           imageUrl: widget.item.imagePath!,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
           memCacheWidth: widget.isGrid ? 600 : 300,
           fadeInDuration: const Duration(milliseconds: 180),
           placeholder: (context, url) => _imageErrorPlaceholder(),
@@ -518,7 +518,7 @@ class _MediaCardState extends State<MediaCard> {
       try {
         return Image.file(
           File(widget.item.imagePath!),
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
           cacheWidth: widget.isGrid ? 600 : 300,
           errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
         );
@@ -542,13 +542,13 @@ class _MediaCardState extends State<MediaCard> {
         child: p.startsWith('http')
             ? CachedNetworkImage(
                 imageUrl: p,
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
                 memCacheWidth: widget.isGrid ? 600 : 300,
                 fadeInDuration: const Duration(milliseconds: 180),
                 placeholder: (context, url) => _imageErrorPlaceholder(),
                 errorWidget: (context, url, error) => _imageErrorPlaceholder(),
               )
-            : Image.file(File(p), fit: BoxFit.contain, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+            : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
       );
     }
     return PageView.builder(
@@ -562,13 +562,13 @@ class _MediaCardState extends State<MediaCard> {
           child: p.startsWith('http')
               ? CachedNetworkImage(
                   imageUrl: p,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                   memCacheWidth: widget.isGrid ? 600 : 300,
                   fadeInDuration: const Duration(milliseconds: 180),
                   placeholder: (context, url) => _imageErrorPlaceholder(),
                   errorWidget: (context, url, error) => _imageErrorPlaceholder(),
                 )
-              : Image.file(File(p), fit: BoxFit.contain, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+              : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
         );
       },
     );

@@ -422,83 +422,81 @@ class _HomeScreenState extends State<HomeScreen>
 
               color: Theme.of(context).scaffoldBackgroundColor,
 
-              child: Column(
-
-                children: [
-
-                  const SearchFilter(),
-
-                  Padding(
-
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-
-                    child: Row(
-
-                      children: [
-
-                        const Text('Sort by: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-
-                        const SizedBox(width: 8),
-
-                        DropdownButton<String>(
-
-                          value: _sortBy,
-
-                          isDense: true,
-
-                          style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
-
-                          items: const [
-
-                            'Title (A-Z)',
-
-                            'Title (Z-A)',
-
-                            'Rating (High-Low)',
-
-                            'Rating (Low-High)',
-
-                            'Date Added (Newest)',
-
-                            'Date Added (Oldest)',
-
-                            'Release Year (Newest)',
-
-                            'Release Year (Oldest)',
-
-                          ].map((sort) => DropdownMenuItem<String>(value: sort, child: Text(sort))).toList(),
-
-                          onChanged: (value) {
-
-                            if (value != null) {
-
-                              setState(() {
-
-                                _sortBy = value;
-
-                              });
-
-                            }
-
-                          },
-
-                        ),
-
-                      ],
-
-                    ),
-
-                  ),
-
-                ],
-
-              ),
+              child: const SearchFilter(),
 
             ),
 
-            minExtentHeight: headerHeight + 50,
+            minExtentHeight: headerHeight,
 
-            maxExtentHeight: headerHeight + 50,
+            maxExtentHeight: headerHeight,
+
+          ),
+
+        ),
+
+        SliverToBoxAdapter(
+
+          child: Container(
+
+            color: Theme.of(context).scaffoldBackgroundColor,
+
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+
+            child: Row(
+
+              children: [
+
+                const Text('Sort by: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+
+                const SizedBox(width: 8),
+
+                DropdownButton<String>(
+
+                  value: _sortBy,
+
+                  isDense: true,
+
+                  style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
+
+                  items: const [
+
+                    'Title (A-Z)',
+
+                    'Title (Z-A)',
+
+                    'Rating (High-Low)',
+
+                    'Rating (Low-High)',
+
+                    'Date Added (Newest)',
+
+                    'Date Added (Oldest)',
+
+                    'Release Year (Newest)',
+
+                    'Release Year (Oldest)',
+
+                  ].map((sort) => DropdownMenuItem<String>(value: sort, child: Text(sort))).toList(),
+
+                  onChanged: (value) {
+
+                    if (value != null) {
+
+                      setState(() {
+
+                        _sortBy = value;
+
+                      });
+
+                    }
+
+                  },
+
+                ),
+
+              ],
+
+            ),
 
           ),
 
