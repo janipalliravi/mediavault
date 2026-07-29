@@ -322,6 +322,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       String apiName = '';
 
       // Choose appropriate API based on type
+      debugPrint('Auto-fill called with type: "$_type", title: "$title"');
       if (_type == 'Anime') {
         final anilistService = AniListService();
         results = await anilistService.searchAnime(title);
@@ -332,6 +333,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
         apiName = 'AniList (Manga)';
       } else if (_type == 'Series') {
         // Series uses TVMaze for TV Series, TMDB for Web Series
+        debugPrint('Series type detected, sub-type: "$_seriesSubType"');
         if (_seriesSubType == 'Web Series') {
           final tmdbService = TMDBService();
           results = await tmdbService.searchByTitle(title, type: 'Web Series');
@@ -343,6 +345,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
         }
       } else if (_type == 'K-Drama') {
         // K-Drama uses TMDB TV search (same as Series)
+        debugPrint('K-Drama type detected, calling TMDB with type: Series');
         final tmdbService = TMDBService();
         results = await tmdbService.searchByTitle(title, type: 'Series');
         apiName = 'TMDB';
@@ -352,6 +355,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
         results = await tmdbService.searchByTitle(title, type: _type);
         apiName = 'TMDB';
       }
+      debugPrint('API call completed. Results count: ${results.length}, API: $apiName');
 
       if (results.isEmpty && mounted) {
         SnackbarHelper.showWarning(context, 'No results found on $apiName. Try a different title or check spelling.');
