@@ -48,11 +48,13 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _episodesCtrl = TextEditingController();
   final List<String> _extraImages = <String>[];
 
-  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series', 'Web Series'];
+  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series'];
+  static const List<String> _seriesSubTypes = ['TV Series', 'Web Series'];
   static const List<String> _statuses = AppConstants.statuses;
   static const List<String> _recommendOpts = AppConstants.recommendOptions;
 
   String _type = _types.first;
+  String _seriesSubType = _seriesSubTypes.first;
   String _status = 'Watch list';
   String _recommend = 'Maybe';
   double _rating = 0.0;
@@ -328,14 +330,21 @@ class _AddEditScreenState extends State<AddEditScreen> {
         final anilistService = AniListService();
         results = await anilistService.searchManga(title);
         apiName = 'AniList (Manga)';
-      } else if (_type == 'Series' || _type == 'Web Series') {
-        final tvmazeService = TVMazeService();
-        results = await tvmazeService.searchShows(title);
-        apiName = 'TVMaze';
+      } else if (_type == 'Series') {
+        // Series uses TVMaze for TV Series, TMDB for Web Series
+        if (_seriesSubType == 'Web Series') {
+          final tmdbService = TMDBService();
+          results = await tmdbService.searchByTitle(title, type: 'Web Series');
+          apiName = 'TMDB';
+        } else {
+          final tvmazeService = TVMazeService();
+          results = await tvmazeService.searchShows(title);
+          apiName = 'TVMaze';
+        }
       } else if (_type == 'K-Drama') {
-        // K-Drama uses TMDB TV search
+        // K-Drama uses TMDB TV search (same as Series)
         final tmdbService = TMDBService();
-        results = await tmdbService.searchByTitle(title, type: _type);
+        results = await tmdbService.searchByTitle(title, type: 'Series');
         apiName = 'TMDB';
       } else {
         // Movies use TMDB
@@ -376,10 +385,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
                            result['releaseDate']?.toString().split('-').first ?? 'N/A';
                     posterUrl = result['posterPath'];
                     subtitle = '${result['type'] ?? 'N/A'} • ${result['status'] ?? 'N/A'}';
-                  } else if (_type == 'Series' || _type == 'Web Series') {
+                  } else if (_type == 'Series' || _type == 'K-Drama') {
                     year = result['releaseDate']?.toString().split('-').first ?? 'N/A';
                     posterUrl = result['posterPath'];
-                    subtitle = '${result['network'] ?? 'N/A'} • ${result['language'] ?? 'N/A'}';
+                    if (_type == 'Series') {
+                      subtitle = '${result['network'] ?? 'N/A'} • ${result['language'] ?? 'N/A'}';
+                    } else {
+                      subtitle = '${result['originalLanguage'] ?? 'N/A'} • ${result['firstAirDate']?.toString().split('-').first ?? 'N/A'}';
+                    }
                   } else {
                     // TMDB
                     year = result['releaseDate']?.toString().split('-').first ?? 
@@ -482,7 +495,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
           }
 
           // Fill seasons for series/k-drama
-          if (selectedData?['seasons'] != null && (_type == 'Series' || _type == 'Web Series' || _type == 'K-Drama')) {
+          if (selectedData?['seasons'] != null && (_type == 'Series' || _type == 'K-Drama')) {
             final seasons = selectedData!['seasons'];
             _seasonsCtrl.text = seasons.toString();
             debugPrint('Auto-filled seasons: $seasons');
@@ -498,16 +511,24 @@ class _AddEditScreenState extends State<AddEditScreen> {
           // Download and set poster image
           String? imageUrl;
           if (selectedData?['posterPath'] != null && selectedData!['posterPath'].toString().isNotEmpty) {
-            if (_type == 'Anime' || _type == 'Manga' || _type == 'Series' || _type == 'Web Series' || _type == 'K-Drama') {
-              // Jikan and TVMaze return full URLs, TMDB for K-Drama also returns full URLs after processing
-              if (_type == 'K-Drama') {
+            if (_type == 'Anime' || _type == 'Manga') {
+              // Jikan returns full URLs
+              imageUrl = selectedData['posterPath'];
+            } else if (_type == 'Series') {
+              // TVMaze returns full URLs for TV Series
+              if (_seriesSubType == 'TV Series') {
+                imageUrl = selectedData['posterPath'];
+              } else {
+                // Web Series uses TMDB (relative paths)
                 final tmdbService = TMDBService();
                 imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
-              } else {
-                imageUrl = selectedData['posterPath'];
               }
+            } else if (_type == 'K-Drama') {
+              // K-Drama uses TMDB (relative paths)
+              final tmdbService = TMDBService();
+              imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
             } else {
-              // TMDB returns relative paths for Movies
+              // Movies use TMDB (relative paths)
               final tmdbService = TMDBService();
               imageUrl = tmdbService.getPosterUrl(selectedData['posterPath']);
             }
@@ -1040,6 +1061,29 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     onChanged: (v) => setState(() => _type = v!),
                     decoration: _inputDecoration('Type *'),
                   ),
+                  // Series sub-type dropdown
+                  if (_type == 'Series') ...[
+                    SizedBox(height: gap + 8),
+                    DropdownButtonFormField<String>(
+                      value: _seriesSubType,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      ),
+                      items: _seriesSubTypes.map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(
+                          t,
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                      )).toList(),
+                      onChanged: (v) => setState(() => _seriesSubType = v!),
+                      decoration: _inputDecoration('Series Type *'),
+                    ),
+                  ],
                   // Move Season/Episodes (or Chapter for Manga) above Status
                   if (_type != 'Movies') ...[
                     SizedBox(height: gap + 8),
