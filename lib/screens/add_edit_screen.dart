@@ -51,14 +51,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series'];
   static const List<String> _seriesSubTypes = ['TV Series', 'Web Series'];
-  static const List<String> _animeMangaApis = ['AniList', 'Jikan (MAL)'];
   static const List<String> _statuses = AppConstants.statuses;
   static const List<String> _recommendOpts = AppConstants.recommendOptions;
 
   String _type = _types.first;
   String _seriesSubType = _seriesSubTypes.first;
-  String _animeMangaApi = _animeMangaApis.first;
-  bool _enableAutoFill = true;
   String _status = 'Watch list';
   String _recommend = 'Maybe';
   double _rating = 0.0;
@@ -318,12 +315,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
       return;
     }
 
-    if (!_enableAutoFill) {
-      if (!mounted) return;
-      SnackbarHelper.showWarning(context, 'Auto-fill is disabled. Please fill fields manually.');
-      return;
-    }
-
     if (!mounted) return;
     SnackbarHelper.showInfo(context, 'Fetching data...');
 
@@ -334,24 +325,56 @@ class _AddEditScreenState extends State<AddEditScreen> {
       // Choose appropriate API based on type
       debugPrint('Auto-fill called with type: "$_type", title: "$title"');
       if (_type == 'Anime') {
-        if (_animeMangaApi == 'AniList') {
+        // Try AniList first, fallback to Jikan if it fails
+        try {
           final anilistService = AniListService();
           results = await anilistService.searchAnime(title);
           apiName = 'AniList (Anime)';
-        } else {
-          final jikanService = JikanService();
-          results = await jikanService.searchAnime(title);
-          apiName = 'Jikan (MAL) (Anime)';
+          if (results.isEmpty) {
+            debugPrint('AniList returned no results, trying Jikan');
+            final jikanService = JikanService();
+            results = await jikanService.searchAnime(title);
+            apiName = 'Jikan (MAL) (Anime)';
+          }
+        } catch (e) {
+          debugPrint('AniList failed with error: $e, trying Jikan');
+          try {
+            final jikanService = JikanService();
+            results = await jikanService.searchAnime(title);
+            apiName = 'Jikan (MAL) (Anime)';
+          } catch (jikanError) {
+            debugPrint('Jikan also failed with error: $jikanError');
+            if (mounted) {
+              SnackbarHelper.showError(context, 'Both APIs failed. Please try again later or enter data manually.');
+            }
+            return;
+          }
         }
       } else if (_type == 'Manga') {
-        if (_animeMangaApi == 'AniList') {
+        // Try AniList first, fallback to Jikan if it fails
+        try {
           final anilistService = AniListService();
           results = await anilistService.searchManga(title);
           apiName = 'AniList (Manga)';
-        } else {
-          final jikanService = JikanService();
-          results = await jikanService.searchManga(title);
-          apiName = 'Jikan (MAL) (Manga)';
+          if (results.isEmpty) {
+            debugPrint('AniList returned no results, trying Jikan');
+            final jikanService = JikanService();
+            results = await jikanService.searchManga(title);
+            apiName = 'Jikan (MAL) (Manga)';
+          }
+        } catch (e) {
+          debugPrint('AniList failed with error: $e, trying Jikan');
+          try {
+            final jikanService = JikanService();
+            results = await jikanService.searchManga(title);
+            apiName = 'Jikan (MAL) (Manga)';
+          } catch (jikanError) {
+            debugPrint('Jikan also failed with error: $jikanError');
+            if (mounted) {
+              SnackbarHelper.showError(context, 'Both APIs failed. Please try again later or enter data manually.');
+            }
+            return;
+          }
         }
       } else if (_type == 'Series') {
         // Series uses TVMaze for TV Series, TMDB for Web Series
@@ -1089,29 +1112,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     onChanged: (v) => setState(() => _type = v!),
                     decoration: _inputDecoration('Type *'),
                   ),
-                  // Anime/Manga API selection dropdown
-                  if (_type == 'Anime' || _type == 'Manga') ...[
-                    SizedBox(height: gap + 8),
-                    DropdownButtonFormField<String>(
-                      value: _animeMangaApi,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                      ),
-                      items: _animeMangaApis.map((t) => DropdownMenuItem(
-                        value: t,
-                        child: Text(
-                          t,
-                          style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )
-                      )).toList(),
-                      onChanged: (v) => setState(() => _animeMangaApi = v!),
-                      decoration: _inputDecoration('API Source *'),
-                    ),
-                  ],
                   // Series sub-type dropdown
                   if (_type == 'Series') ...[
                     SizedBox(height: gap + 8),
@@ -1135,15 +1135,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
                       decoration: _inputDecoration('Series Type *'),
                     ),
                   ],
-                  // Auto-fill toggle
-                  SizedBox(height: gap + 8),
-                  SwitchListTile(
-                    title: const Text('Enable Auto-fill'),
-                    subtitle: const Text('Search and fill data from APIs'),
-                    value: _enableAutoFill,
-                    onChanged: (value) => setState(() => _enableAutoFill = value),
-                    contentPadding: EdgeInsets.zero,
-                  ),
                   // Move Season/Episodes (or Chapter for Manga) above Status
                   if (_type != 'Movies') ...[
                     SizedBox(height: gap + 8),

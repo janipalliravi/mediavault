@@ -1,47 +1,78 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class JikanService {
   static const String _baseUrl = 'https://api.jikan.moe/v4';
 
   Future<List<Map<String, dynamic>>> searchAnime(String query) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/anime?q=${Uri.encodeComponent(query)}&limit=10'),
-      ).timeout(const Duration(seconds: 10));
+    int retries = 2;
+    for (int i = 0; i <= retries; i++) {
+      try {
+        final response = await http.get(
+          Uri.parse('$_baseUrl/anime?q=${Uri.encodeComponent(query)}&limit=10'),
+        ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final results = data['data'] as List;
-        return results.map((item) => _parseAnimeData(item)).toList();
-      } else if (response.statusCode == 504) {
-        throw Exception('Jikan API is currently unavailable (504). Please try again later.');
-      } else {
-        throw Exception('Jikan API returned error ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final results = data['data'] as List;
+          return results.map((item) => _parseAnimeData(item)).toList();
+        } else if (response.statusCode == 504) {
+          if (i < retries) {
+            debugPrint('Jikan API returned 504, retrying... ($i + 1/$retries)');
+            await Future.delayed(Duration(seconds: 2));
+            continue;
+          } else {
+            throw Exception('Jikan API is currently unavailable (504). Please try again later.');
+          }
+        } else {
+          throw Exception('Jikan API returned error ${response.statusCode}');
+        }
+      } catch (e) {
+        if (i < retries && e.toString().contains('504')) {
+          debugPrint('Jikan API error, retrying... ($i + 1/$retries)');
+          await Future.delayed(Duration(seconds: 2));
+          continue;
+        }
+        throw Exception('Failed to search anime: ${e.toString()}');
       }
-    } catch (e) {
-      throw Exception('Failed to search anime: ${e.toString()}');
     }
+    throw Exception('Failed to search anime after retries');
   }
 
   Future<List<Map<String, dynamic>>> searchManga(String query) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/manga?q=${Uri.encodeComponent(query)}&limit=10'),
-      ).timeout(const Duration(seconds: 10));
+    int retries = 2;
+    for (int i = 0; i <= retries; i++) {
+      try {
+        final response = await http.get(
+          Uri.parse('$_baseUrl/manga?q=${Uri.encodeComponent(query)}&limit=10'),
+        ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final results = data['data'] as List;
-        return results.map((item) => _parseMangaData(item)).toList();
-      } else if (response.statusCode == 504) {
-        throw Exception('Jikan API is currently unavailable (504). Please try again later.');
-      } else {
-        throw Exception('Jikan API returned error ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final results = data['data'] as List;
+          return results.map((item) => _parseMangaData(item)).toList();
+        } else if (response.statusCode == 504) {
+          if (i < retries) {
+            debugPrint('Jikan API returned 504, retrying... ($i + 1/$retries)');
+            await Future.delayed(Duration(seconds: 2));
+            continue;
+          } else {
+            throw Exception('Jikan API is currently unavailable (504). Please try again later.');
+          }
+        } else {
+          throw Exception('Jikan API returned error ${response.statusCode}');
+        }
+      } catch (e) {
+        if (i < retries && e.toString().contains('504')) {
+          debugPrint('Jikan API error, retrying... ($i + 1/$retries)');
+          await Future.delayed(Duration(seconds: 2));
+          continue;
+        }
+        throw Exception('Failed to search manga: ${e.toString()}');
       }
-    } catch (e) {
-      throw Exception('Failed to search manga: ${e.toString()}');
     }
+    throw Exception('Failed to search manga after retries');
   }
 
   Map<String, dynamic> _parseAnimeData(dynamic item) {
