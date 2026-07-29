@@ -420,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen>
 
             child: Container(
 
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: Theme.of(context).colorScheme.surface,
 
               child: const SearchFilter(),
 
@@ -440,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen>
 
             color: Theme.of(context).colorScheme.surface,
 
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
 
             child: Row(
 

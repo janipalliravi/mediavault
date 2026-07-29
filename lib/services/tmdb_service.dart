@@ -67,13 +67,13 @@ class TMDBService {
         if (result['type'] == 'Movies') {
           final credits = await _tmdb.v3.movies.getCredits(id);
           if (credits['cast'] != null) {
-            final castList = credits['cast'].take(5).map((c) => c['name']).toList();
+            final castList = credits['cast'].take(3).map((c) => c['name']).toList();
             result['cast'] = castList.join(', ');
           }
         } else {
           final credits = await _tmdb.v3.tv.getCredits(id);
           if (credits['cast'] != null) {
-            final castList = credits['cast'].take(5).map((c) => c['name']).toList();
+            final castList = credits['cast'].take(3).map((c) => c['name']).toList();
             result['cast'] = castList.join(', ');
           }
           

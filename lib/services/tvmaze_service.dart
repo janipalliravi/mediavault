@@ -50,7 +50,9 @@ class TVMazeService {
               // Fetch trailer from TMDB if not present
               if (showData['trailer'] == null || showData['trailer'].toString().isEmpty) {
                 try {
+                  debugPrint('Fetching trailer from TMDB for TMDB ID: $tmdbId');
                   final videos = await _tmdb.v3.tv.getVideos(tmdbId);
+                  debugPrint('TMDB videos response: ${videos['results']?.length ?? 0} videos found');
                   if (videos['results'] != null) {
                     final trailer = videos['results'].firstWhere(
                       (v) => v['type'] == 'Trailer' && v['site'] == 'YouTube',
@@ -58,7 +60,9 @@ class TVMazeService {
                     );
                     if (trailer != null) {
                       showData['trailer'] = 'https://www.youtube.com/watch?v=${trailer['key']}';
-                      debugPrint('Fetched trailer from TMDB for: $title');
+                      debugPrint('Fetched trailer from TMDB for: $title - ${showData['trailer']}');
+                    } else {
+                      debugPrint('No YouTube trailer found for: $title');
                     }
                   }
                 } catch (e) {
@@ -71,7 +75,7 @@ class TVMazeService {
                 try {
                   final credits = await _tmdb.v3.tv.getCredits(tmdbId);
                   if (credits['cast'] != null) {
-                    final castList = credits['cast'].take(5).map((c) => c['name']).toList();
+                    final castList = credits['cast'].take(3).map((c) => c['name']).toList();
                     if (castList.isNotEmpty) {
                       showData['cast'] = castList.join(', ');
                       debugPrint('Fetched cast from TMDB for: $title');
@@ -116,7 +120,7 @@ class TVMazeService {
 
   Map<String, dynamic> _parseShowDetails(dynamic show) {
     final cast = show['_embedded']?['cast'] as List?;
-    final castNames = cast?.map((c) => c['person']?['name']).toList() ?? [];
+    final castNames = cast?.take(3).map((c) => c['person']?['name']).toList() ?? [];
     
     return {
       'title': show['name'] ?? '',
@@ -133,6 +137,7 @@ class TVMazeService {
       'network': show['network']?['name'] ?? '',
       'country': show['network']?['country']?['name'] ?? '',
       'cast': castNames.join(', '),
+      'trailer': null, // TVMaze doesn't provide trailer, will be fetched from TMDB
       'tvmaze_id': show['id'],
     };
   }
