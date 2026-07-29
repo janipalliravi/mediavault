@@ -35,6 +35,7 @@ class TMDBService {
       
       if (type == 'Series' || type == 'Anime' || type == 'K-Drama') {
         final tv = await _tmdb.v3.search.queryTvShows(title);
+        debugPrint('TMDB TV search results for "$title" (type: $type): ${tv['results']?.length ?? 0} results');
         if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {
           for (var show in (tv['results'] as List).take(10)) {
             // Filter for K-Drama: Korean origin country or Korean language
@@ -43,6 +44,7 @@ class TMDBService {
               final originalLanguage = show['original_language'] as String?;
               final isKorean = (originCountry != null && originCountry.contains('KR')) ||
                               (originalLanguage == 'ko');
+              debugPrint('K-Drama filter: ${show['name']} - originCountry: $originCountry, language: $originalLanguage, isKorean: $isKorean');
               if (!isKorean) continue;
             }
             results.add({
