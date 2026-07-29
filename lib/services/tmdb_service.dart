@@ -1,5 +1,7 @@
 import 'package:tmdb_api/tmdb_api.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class TMDBService {
   static const String _apiKey = '2dca580c2a14b55200e784d157207b4d'; // Free TMDB API key
@@ -34,9 +36,25 @@ class TMDBService {
       }
       
       if (type == 'Series' || type == 'Anime' || type == 'K-Drama' || type == 'Web Series') {
-        final tv = await _tmdb.v3.search.queryTvShows(title);
-        debugPrint('TMDB TV search for "$title" with type "$type": ${tv['results']?.length ?? 0} results');
-        if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {
+        // For K-Drama, use direct HTTP call with Korean language parameter
+        dynamic tv;
+        if (type == 'K-Drama') {
+          // Direct HTTP call with Korean language
+          final url = 'https://api.themoviedb.org/3/search/tv?api_key=$_apiKey&query=${Uri.encodeComponent(title)}&language=ko';
+          final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+          if (response.statusCode == 200) {
+            tv = json.decode(response.body);
+            debugPrint('TMDB TV search for "$title" with Korean language: ${tv['results']?.length ?? 0} results');
+          } else {
+            debugPrint('TMDB HTTP error: ${response.statusCode}');
+            tv = {'results': []};
+          }
+        } else {
+          tv = await _tmdb.v3.search.queryTvShows(title);
+          debugPrint('TMDB TV search for "$title" with type "$type": ${tv['results']?.length ?? 0} results');
+        }
+        
+        if (tv != null && tv['results'] != null && (tv['results'] as List).isNotEmpty) {
           for (var show in (tv['results'] as List).take(10)) {
             debugPrint('Adding show: ${show['name']} (ID: ${show['id']})');
             results.add({

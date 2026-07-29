@@ -474,12 +474,20 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
           // Fill episodes for anime/series/k-drama
           if (selectedData?['episodes'] != null) {
-            _episodesCtrl.text = selectedData!['episodes'].toString();
+            final episodes = selectedData!['episodes'];
+            _episodesCtrl.text = episodes.toString();
+            debugPrint('Auto-filled episodes: $episodes');
+          } else {
+            debugPrint('No episodes data in selectedData');
           }
 
           // Fill seasons for series/k-drama
           if (selectedData?['seasons'] != null && (_type == 'Series' || _type == 'Web Series' || _type == 'K-Drama')) {
-            _seasonsCtrl.text = selectedData!['seasons'].toString();
+            final seasons = selectedData!['seasons'];
+            _seasonsCtrl.text = seasons.toString();
+            debugPrint('Auto-filled seasons: $seasons');
+          } else {
+            debugPrint('No seasons data in selectedData or type not matching');
           }
 
           // Fill chapters for manga
