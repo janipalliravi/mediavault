@@ -387,8 +387,21 @@ class _AddEditScreenState extends State<AddEditScreen> {
         } else {
           // Try TVMaze first, fallback to TMDB if no results
           final tvmazeService = TVMazeService();
-          results = await tvmazeService.searchShows(title);
+          final searchResults = await tvmazeService.searchShows(title);
           apiName = 'TVMaze';
+          
+          // Fetch detailed info for each TVMaze result (includes trailer/cast fallback from TMDB)
+          results = [];
+          for (var result in searchResults.take(10)) {
+            final tvmazeId = result['tvmaze_id'] as int?;
+            if (tvmazeId != null) {
+              final details = await tvmazeService.getShowDetails(tvmazeId);
+              if (details != null) {
+                results.add(details);
+              }
+            }
+          }
+          
           if (results.isEmpty) {
             debugPrint('TVMaze returned no results, trying TMDB');
             final tmdbService = TMDBService();

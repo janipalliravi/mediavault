@@ -1,8 +1,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:tmdb_api/tmdb_api.dart';
+import 'package:flutter/foundation.dart';
 
 class TVMazeService {
   static const String _baseUrl = 'https://api.tvmaze.com';
+  static const String _tmdbApiKey = '2dca580c2a14b55200e784d157207b4d';
+  late TMDB _tmdb;
+
+  TVMazeService() {
+    _tmdb = TMDB(ApiKeys(_tmdbApiKey, ''));
+  }
 
   Future<List<Map<String, dynamic>>> searchShows(String query) async {
     try {
@@ -27,7 +35,59 @@ class TVMazeService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        return _parseShowDetails(json.decode(response.body));
+        final showData = _parseShowDetails(json.decode(response.body));
+        
+        // If trailer or cast is missing, try to fetch from TMDB
+        final title = showData['title'] as String;
+        if (title.isNotEmpty) {
+          // Search TMDB for the show
+          try {
+            final tmdbResults = await _tmdb.v3.search.queryTvShows(title);
+            if (tmdbResults['results'] != null && (tmdbResults['results'] as List).isNotEmpty) {
+              final tmdbShow = (tmdbResults['results'] as List).first;
+              final tmdbId = tmdbShow['id'];
+              
+              // Fetch trailer from TMDB if not present
+              if (showData['trailer'] == null || showData['trailer'].toString().isEmpty) {
+                try {
+                  final videos = await _tmdb.v3.tv.getVideos(tmdbId);
+                  if (videos['results'] != null) {
+                    final trailer = videos['results'].firstWhere(
+                      (v) => v['type'] == 'Trailer' && v['site'] == 'YouTube',
+                      orElse: () => null,
+                    );
+                    if (trailer != null) {
+                      showData['trailer'] = 'https://www.youtube.com/watch?v=${trailer['key']}';
+                      debugPrint('Fetched trailer from TMDB for: $title');
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('Error fetching trailer from TMDB: $e');
+                }
+              }
+              
+              // Fetch cast from TMDB if not present or empty
+              if (showData['cast'] == null || showData['cast'].toString().isEmpty) {
+                try {
+                  final credits = await _tmdb.v3.tv.getCredits(tmdbId);
+                  if (credits['cast'] != null) {
+                    final castList = credits['cast'].take(5).map((c) => c['name']).toList();
+                    if (castList.isNotEmpty) {
+                      showData['cast'] = castList.join(', ');
+                      debugPrint('Fetched cast from TMDB for: $title');
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('Error fetching cast from TMDB: $e');
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Error searching TMDB for show: $e');
+          }
+        }
+        
+        return showData;
       }
       return null;
     } catch (e) {
