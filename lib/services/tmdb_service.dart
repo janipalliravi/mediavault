@@ -166,7 +166,7 @@ class TMDBService {
               'originalLanguage': _getLanguageName(item['original_language']),
             });
           } else if (mediaType == 'tv') {
-            results.add({
+            final tvResult = {
               'title': item['name'] ?? item['original_name'],
               'overview': item['overview'],
               'firstAirDate': item['first_air_date'],
@@ -178,7 +178,42 @@ class TMDBService {
               'mediaType': 'tv',
               'id': item['id'],
               'originalLanguage': _getLanguageName(item['original_language']),
-            });
+            };
+            
+            // Fetch detailed TV show information for seasons and episodes
+            try {
+              final details = await _tmdb.v3.tv.getDetails(item['id']);
+              final seasons = details['seasons'] as List?;
+              if (seasons != null && seasons.isNotEmpty) {
+                // Count total seasons (excluding specials with season number 0)
+                final seasonCount = seasons.where((s) => s['season_number'] != 0).length;
+                tvResult['seasons'] = seasonCount;
+                
+                // Get episodes from season 1 only
+                final season1 = seasons.firstWhere(
+                  (s) => s['season_number'] == 1,
+                  orElse: () => null,
+                );
+                if (season1 != null && season1['episode_count'] != null) {
+                  tvResult['episodes'] = season1['episode_count'];
+                  debugPrint('Season 1 episodes for ${tvResult['title']}: ${season1['episode_count']}');
+                } else {
+                  // Fallback: get episodes from first non-special season
+                  final firstSeason = seasons.firstWhere(
+                    (s) => s['season_number'] != 0,
+                    orElse: () => null,
+                  );
+                  if (firstSeason != null && firstSeason['episode_count'] != null) {
+                    tvResult['episodes'] = firstSeason['episode_count'];
+                    debugPrint('First season episodes for ${tvResult['title']}: ${firstSeason['episode_count']}');
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error fetching TV details for ${tvResult['title']}: $e');
+            }
+            
+            results.add(tvResult);
           }
           // Skip 'person' results
         }
