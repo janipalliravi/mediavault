@@ -20,7 +20,6 @@ import '../services/tvmaze_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_quill/flutter_quill.dart' as quill;
 
 /// AddEditScreen allows creating or editing a media item.
 /// It supports multi-image import with compression, URL normalization for trailer,
@@ -42,8 +41,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _releaseYearCtrl = TextEditingController();
   final _watchedYearCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  late quill.QuillController _quillController;
-  final _notesFocusNode = FocusNode();
   String? _trailerUrl;
   String? _castText;
   String? _genresText;
@@ -51,7 +48,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _episodesCtrl = TextEditingController();
   final List<String> _extraImages = <String>[];
 
-  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series', 'Web Series'];
+  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'Series', 'Web Series'];
   static const List<String> _statuses = AppConstants.statuses;
   static const List<String> _recommendOpts = AppConstants.recommendOptions;
 
@@ -94,11 +91,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _releaseYearCtrl.text = item.releaseYear?.toString() ?? '';
       _watchedYearCtrl.text = item.watchedYear?.toString() ?? '';
       _notesCtrl.text = item.notes ?? '';
-      // Initialize Quill controller with existing notes
-      _quillController = quill.QuillController(
-        document: quill.Document()..insert(0, item.notes ?? ''),
-        selection: const TextSelection.collapsed(offset: 0),
-      );
       _type = _types.contains(item.type) ? item.type : _types.first;
       _status = _statuses.contains(item.status) ? item.status : 'Watch list';
       _rating = item.rating ?? 0.0; // Use existing rating when editing
@@ -130,10 +122,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
       }
     } else {
       _addedDate = DateTime.now();
-      _quillController = quill.QuillController(
-        document: quill.Document(),
-        selection: const TextSelection.collapsed(offset: 0),
-      );
     }
   }
 
@@ -144,8 +132,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
     _releaseYearCtrl.dispose();
     _watchedYearCtrl.dispose();
     _notesCtrl.dispose();
-    _quillController.dispose();
-    _notesFocusNode.dispose();
     _seasonsCtrl.dispose();
     _episodesCtrl.dispose();
     super.dispose();
@@ -810,7 +796,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       watchedYear: watchedYear,
       language: _languageCtrl.text.trim().isEmpty ? null : _languageCtrl.text.trim(),
       rating: _rating,
-      notes: _quillController.document.toPlainText().trim().isEmpty ? null : _quillController.document.toPlainText().trim(),
+      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       recommend: _recommend,
       imagePath: validImagePath,
       extra: extra.isEmpty ? null : extra,
@@ -1225,37 +1211,29 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   ),
                   const SizedBox(height: 6),
                   Container(
+                    height: 150,
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.grey.shade800 
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark 
+                            ? Colors.grey.shade600 
+                            : Colors.grey.shade300,
+                        width: 1,
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        quill.QuillSimpleToolbar(
-                          controller: _quillController,
-                        ),
-                        Container(
-                          height: 150,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).brightness == Brightness.dark 
-                                ? Colors.grey.shade800 
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Theme.of(context).brightness == Brightness.dark 
-                                  ? Colors.grey.shade600 
-                                  : Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: quill.QuillEditor(
-                            controller: _quillController,
-                            scrollController: ScrollController(),
-                            focusNode: _notesFocusNode,
-                          ),
-                        ),
-                      ],
+                    child: TextField(
+                      controller: _notesCtrl,
+                      maxLines: null,
+                      expands: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Add your notes or comments here...',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.all(12),
+                      ),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                   const SizedBox(height: ThemeSpacing.gap16),

@@ -33,21 +33,11 @@ class TMDBService {
         }
       }
       
-      if (type == 'Series' || type == 'Anime' || type == 'K-Drama') {
+      if (type == 'Series' || type == 'Anime' || type == 'Web Series') {
         final tv = await _tmdb.v3.search.queryTvShows(title);
         debugPrint('TMDB TV search results for "$title" (type: $type): ${tv['results']?.length ?? 0} results');
         if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {
           for (var show in (tv['results'] as List).take(10)) {
-            // Filter for K-Drama: Korean origin country or Korean language
-            if (type == 'K-Drama') {
-              final originCountry = show['origin_country'] as List?;
-              final originalLanguage = show['original_language'] as String?;
-              final isKorean = (originCountry != null && originCountry.contains('KR')) ||
-                              (originalLanguage == 'ko');
-              debugPrint('K-Drama filter: ${show['name']} - originCountry: $originCountry, language: $originalLanguage, isKorean: $isKorean');
-              // Temporarily disable strict filtering to test
-              // if (!isKorean) continue;
-            }
             results.add({
               'title': show['name'] ?? show['original_name'],
               'overview': show['overview'],
