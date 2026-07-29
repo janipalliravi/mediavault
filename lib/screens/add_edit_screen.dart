@@ -354,7 +354,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       }
 
       if (results.isEmpty && mounted) {
-        SnackbarHelper.showWarning(context, 'No data found on $apiName');
+        SnackbarHelper.showWarning(context, 'No results found on $apiName. Try a different title or check spelling.');
         return;
       }
 

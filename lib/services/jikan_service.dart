@@ -14,10 +14,13 @@ class JikanService {
         final data = json.decode(response.body);
         final results = data['data'] as List;
         return results.map((item) => _parseAnimeData(item)).toList();
+      } else if (response.statusCode == 504) {
+        throw Exception('Jikan API is currently unavailable (504). Please try again later.');
+      } else {
+        throw Exception('Jikan API returned error ${response.statusCode}');
       }
-      return [];
     } catch (e) {
-      return [];
+      throw Exception('Failed to search anime: ${e.toString()}');
     }
   }
 
@@ -31,10 +34,13 @@ class JikanService {
         final data = json.decode(response.body);
         final results = data['data'] as List;
         return results.map((item) => _parseMangaData(item)).toList();
+      } else if (response.statusCode == 504) {
+        throw Exception('Jikan API is currently unavailable (504). Please try again later.');
+      } else {
+        throw Exception('Jikan API returned error ${response.statusCode}');
       }
-      return [];
     } catch (e) {
-      return [];
+      throw Exception('Failed to search manga: ${e.toString()}');
     }
   }
 
