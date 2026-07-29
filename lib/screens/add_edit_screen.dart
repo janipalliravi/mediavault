@@ -17,6 +17,7 @@ import '../services/image_search_service.dart';
 import '../services/tmdb_service.dart';
 import '../services/anilist_service.dart';
 import '../services/tvmaze_service.dart';
+import '../services/jikan_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -50,11 +51,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series'];
   static const List<String> _seriesSubTypes = ['TV Series', 'Web Series'];
+  static const List<String> _animeMangaApis = ['AniList', 'Jikan (MAL)'];
   static const List<String> _statuses = AppConstants.statuses;
   static const List<String> _recommendOpts = AppConstants.recommendOptions;
 
   String _type = _types.first;
   String _seriesSubType = _seriesSubTypes.first;
+  String _animeMangaApi = _animeMangaApis.first;
+  bool _enableAutoFill = true;
   String _status = 'Watch list';
   String _recommend = 'Maybe';
   double _rating = 0.0;
@@ -314,6 +318,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
       return;
     }
 
+    if (!_enableAutoFill) {
+      if (!mounted) return;
+      SnackbarHelper.showWarning(context, 'Auto-fill is disabled. Please fill fields manually.');
+      return;
+    }
+
     if (!mounted) return;
     SnackbarHelper.showInfo(context, 'Fetching data...');
 
@@ -324,13 +334,25 @@ class _AddEditScreenState extends State<AddEditScreen> {
       // Choose appropriate API based on type
       debugPrint('Auto-fill called with type: "$_type", title: "$title"');
       if (_type == 'Anime') {
-        final anilistService = AniListService();
-        results = await anilistService.searchAnime(title);
-        apiName = 'AniList (Anime)';
+        if (_animeMangaApi == 'AniList') {
+          final anilistService = AniListService();
+          results = await anilistService.searchAnime(title);
+          apiName = 'AniList (Anime)';
+        } else {
+          final jikanService = JikanService();
+          results = await jikanService.searchAnime(title);
+          apiName = 'Jikan (MAL) (Anime)';
+        }
       } else if (_type == 'Manga') {
-        final anilistService = AniListService();
-        results = await anilistService.searchManga(title);
-        apiName = 'AniList (Manga)';
+        if (_animeMangaApi == 'AniList') {
+          final anilistService = AniListService();
+          results = await anilistService.searchManga(title);
+          apiName = 'AniList (Manga)';
+        } else {
+          final jikanService = JikanService();
+          results = await jikanService.searchManga(title);
+          apiName = 'Jikan (MAL) (Manga)';
+        }
       } else if (_type == 'Series') {
         // Series uses TVMaze for TV Series, TMDB for Web Series
         debugPrint('Series type detected, sub-type: "$_seriesSubType"');
@@ -1067,6 +1089,29 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     onChanged: (v) => setState(() => _type = v!),
                     decoration: _inputDecoration('Type *'),
                   ),
+                  // Anime/Manga API selection dropdown
+                  if (_type == 'Anime' || _type == 'Manga') ...[
+                    SizedBox(height: gap + 8),
+                    DropdownButtonFormField<String>(
+                      value: _animeMangaApi,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      ),
+                      items: _animeMangaApis.map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(
+                          t,
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                      )).toList(),
+                      onChanged: (v) => setState(() => _animeMangaApi = v!),
+                      decoration: _inputDecoration('API Source *'),
+                    ),
+                  ],
                   // Series sub-type dropdown
                   if (_type == 'Series') ...[
                     SizedBox(height: gap + 8),
@@ -1090,6 +1135,15 @@ class _AddEditScreenState extends State<AddEditScreen> {
                       decoration: _inputDecoration('Series Type *'),
                     ),
                   ],
+                  // Auto-fill toggle
+                  SizedBox(height: gap + 8),
+                  SwitchListTile(
+                    title: const Text('Enable Auto-fill'),
+                    subtitle: const Text('Search and fill data from APIs'),
+                    value: _enableAutoFill,
+                    onChanged: (value) => setState(() => _enableAutoFill = value),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                   // Move Season/Episodes (or Chapter for Manga) above Status
                   if (_type != 'Movies') ...[
                     SizedBox(height: gap + 8),
