@@ -344,10 +344,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
           apiName = 'TVMaze';
         }
       } else if (_type == 'K-Drama') {
-        // K-Drama uses TMDB TV search (pass K-Drama type directly)
-        debugPrint('K-Drama type detected, calling TMDB with type: K-Drama');
+        // K-Drama uses TMDB TV search (treat as Series since TMDB has no K-Drama type)
+        debugPrint('K-Drama type detected, calling TMDB with type: Series');
         final tmdbService = TMDBService();
-        results = await tmdbService.searchByTitle(title, type: 'K-Drama');
+        results = await tmdbService.searchByTitle(title, type: 'Series');
         apiName = 'TMDB';
       } else {
         // Movies use TMDB
