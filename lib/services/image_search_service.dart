@@ -15,6 +15,7 @@ class ImageSearchService {
   static const String _omdbBaseUrl = 'http://www.omdbapi.com';
 
   /// Search for movies/series by title - fetches from multiple sources with year filter
+  /// Returns multiple posters per media item
   Future<List<ImageSearchResult>> searchMedia(String query, {String type = 'movie', int? year}) async {
     try {
       final results = <ImageSearchResult>[];
@@ -35,7 +36,49 @@ class ImageSearchService {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final pageResults = data['results'] as List;
-          results.addAll(pageResults.map((item) => ImageSearchResult.fromJson(item, source: 'tmdb')).toList());
+          
+          // For each media item, fetch multiple posters
+          for (var item in pageResults.take(5)) { // Limit to 5 items to avoid too many requests
+            final mediaId = item['id'];
+            if (mediaId != null) {
+              // Add the main poster from search result
+              results.add(ImageSearchResult.fromJson(item, source: 'tmdb'));
+              
+              // Fetch additional posters from images endpoint
+              try {
+                final imagesEndpoint = type == 'movie' ? '/movie/$mediaId/images' : '/tv/$mediaId/images';
+                final imagesUrl = Uri.parse('$_tmdbBaseUrl$imagesEndpoint?api_key=$_tmdbApiKey');
+                final imagesResponse = await http.get(imagesUrl).timeout(
+                  const Duration(seconds: 5),
+                  onTimeout: () => http.Response('Timeout', 408),
+                );
+                
+                if (imagesResponse.statusCode == 200) {
+                  final imagesData = jsonDecode(imagesResponse.body);
+                  final posters = imagesData['posters'] as List?;
+                  if (posters != null && posters.isNotEmpty) {
+                    // Add up to 5 additional posters per media item
+                    for (var poster in posters.take(5)) {
+                      final posterPath = poster['file_path'];
+                      if (posterPath != null) {
+                        results.add(ImageSearchResult(
+                          posterPath: posterPath,
+                          title: item['title'] ?? item['name'],
+                          overview: item['overview'],
+                          voteAverage: (item['vote_average'] as num?)?.toDouble(),
+                          releaseDate: item['release_date'] ?? item['first_air_date'],
+                          source: 'tmdb',
+                        ));
+                      }
+                    }
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error fetching images for media $mediaId: $e');
+                // Continue with main poster if images fetch fails
+              }
+            }
+          }
           if (pageResults.isEmpty) break;
         }
       }
@@ -59,13 +102,13 @@ class ImageSearchService {
         }
       }
 
-      // Remove duplicates based on title
+      // Remove duplicates based on poster path
       final uniqueResults = <ImageSearchResult>[];
-      final seenTitles = <String>{};
+      final seenPaths = <String>{};
       for (final result in results) {
-        final titleKey = result.title?.toLowerCase() ?? '';
-        if (titleKey.isNotEmpty && !seenTitles.contains(titleKey)) {
-          seenTitles.add(titleKey);
+        final pathKey = result.posterPath?.toLowerCase() ?? '';
+        if (pathKey.isNotEmpty && !seenPaths.contains(pathKey)) {
+          seenPaths.add(pathKey);
           uniqueResults.add(result);
         }
       }

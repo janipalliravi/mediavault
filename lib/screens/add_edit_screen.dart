@@ -624,6 +624,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final imageSearchService = ImageSearchService();
     List<ImageSearchResult> searchResults = [];
     final Set<int> selectedIndices = {};
+    bool isLoading = false;
+    String? errorMessage;
 
     await showDialog(
       context: context,
@@ -632,15 +634,34 @@ class _AddEditScreenState extends State<AddEditScreen> {
           // Auto-trigger search if title is not empty
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (searchController.text.trim().isNotEmpty && searchResults.isEmpty) {
+              setDialogState(() {
+                isLoading = true;
+                errorMessage = null;
+              });
               final type = _type == 'Movies' ? 'movie' : 'tv';
               final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
-              final results = await imageSearchService.searchMedia(
-                searchController.text.trim(),
-                type: type,
-                year: year,
-              );
-              if (ctx.mounted) {
-                setDialogState(() => searchResults = results);
+              try {
+                final results = await imageSearchService.searchMedia(
+                  searchController.text.trim(),
+                  type: type,
+                  year: year,
+                );
+                if (ctx.mounted) {
+                  setDialogState(() {
+                    searchResults = results;
+                    isLoading = false;
+                    if (results.isEmpty) {
+                      errorMessage = 'No images found. Try a different title.';
+                    }
+                  });
+                }
+              } catch (e) {
+                if (ctx.mounted) {
+                  setDialogState(() {
+                    isLoading = false;
+                    errorMessage = 'Error searching images: $e';
+                  });
+                }
               }
             }
           });
@@ -663,16 +684,33 @@ class _AddEditScreenState extends State<AddEditScreen> {
                           setDialogState(() {
                             searchResults = [];
                             selectedIndices.clear();
+                            isLoading = true;
+                            errorMessage = null;
                           });
                           final type = _type == 'Movies' ? 'movie' : 'tv';
                           final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
-                          final results = await imageSearchService.searchMedia(
-                            searchController.text.trim(),
-                            type: type,
-                            year: year,
-                          );
-                          if (mounted) {
-                            setDialogState(() => searchResults = results);
+                          try {
+                            final results = await imageSearchService.searchMedia(
+                              searchController.text.trim(),
+                              type: type,
+                              year: year,
+                            );
+                            if (mounted) {
+                              setDialogState(() {
+                                searchResults = results;
+                                isLoading = false;
+                                if (results.isEmpty) {
+                                  errorMessage = 'No images found. Try a different title.';
+                                }
+                              });
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              setDialogState(() {
+                                isLoading = false;
+                                errorMessage = 'Error searching images: $e';
+                              });
+                            }
                           }
                         },
                       ),
@@ -682,21 +720,60 @@ class _AddEditScreenState extends State<AddEditScreen> {
                       setDialogState(() {
                         searchResults = [];
                         selectedIndices.clear();
+                        isLoading = true;
+                        errorMessage = null;
                       });
                       final type = _type == 'Movies' ? 'movie' : 'tv';
                       final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
-                      final results = await imageSearchService.searchMedia(
-                        value.trim(),
-                        type: type,
-                        year: year,
-                      );
-                      if (mounted) {
-                        setDialogState(() => searchResults = results);
+                      try {
+                        final results = await imageSearchService.searchMedia(
+                          value.trim(),
+                          type: type,
+                          year: year,
+                        );
+                        if (mounted) {
+                          setDialogState(() {
+                            searchResults = results;
+                            isLoading = false;
+                            if (results.isEmpty) {
+                              errorMessage = 'No images found. Try a different title.';
+                            }
+                          });
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          setDialogState(() {
+                            isLoading = false;
+                            errorMessage = 'Error searching images: $e';
+                          });
+                        }
                       }
                     },
                   ),
                   const SizedBox(height: 8),
-                  Text('Selected: ${selectedIndices.length} image(s)'),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 16),
+                          Text('Searching for images...', style: TextStyle(color: Colors.black)),
+                        ],
+                      ),
+                    ),
+                  if (errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        errorMessage!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  if (!isLoading && errorMessage == null)
+                    Text('Selected: ${selectedIndices.length} image(s)'),
                   const SizedBox(height: 8),
                   Expanded(
                     child: searchResults.isEmpty
