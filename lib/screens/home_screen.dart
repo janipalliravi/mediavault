@@ -438,7 +438,7 @@ class _HomeScreenState extends State<HomeScreen>
 
           child: Container(
 
-            color: Theme.of(context).scaffoldBackgroundColor,
+            color: Theme.of(context).colorScheme.surface,
 
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
 
@@ -502,7 +502,7 @@ class _HomeScreenState extends State<HomeScreen>
 
         ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: gap)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
         if (data.showStats)
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/media_item.dart';
@@ -505,26 +506,48 @@ class _MediaCardState extends State<MediaCard> {
 
   Widget _buildImageOrPlaceholder(BoxFit fit) {
     if (widget.item.imagePath != null && widget.item.imagePath!.isNotEmpty) {
-      if (widget.item.imagePath!.startsWith('http')) {
-        return CachedNetworkImage(
-          imageUrl: widget.item.imagePath!,
-          fit: BoxFit.cover,
-          memCacheWidth: widget.isGrid ? 600 : 300,
-          fadeInDuration: const Duration(milliseconds: 180),
-          placeholder: (context, url) => _imageErrorPlaceholder(),
-          errorWidget: (context, url, error) => _imageErrorPlaceholder(),
-        );
-      }
-      try {
-        return Image.file(
-          File(widget.item.imagePath!),
-          fit: BoxFit.cover,
-          cacheWidth: widget.isGrid ? 600 : 300,
-          errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
-        );
-      } catch (_) {
-        return _imageErrorPlaceholder();
-      }
+      final p = widget.item.imagePath!;
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(0),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Blurred background image (cover)
+            Positioned.fill(
+              child: p.startsWith('http')
+                  ? CachedNetworkImage(
+                      imageUrl: p,
+                      fit: BoxFit.cover,
+                      memCacheWidth: widget.isGrid ? 600 : 300,
+                      fadeInDuration: const Duration(milliseconds: 180),
+                      placeholder: (context, url) => _imageErrorPlaceholder(),
+                      errorWidget: (context, url, error) => _imageErrorPlaceholder(),
+                    )
+                  : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+            ),
+            // Blur effect
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(color: Colors.black.withValues(alpha: 0.1)),
+              ),
+            ),
+            // Sharp foreground image (contain)
+            Center(
+              child: p.startsWith('http')
+                  ? CachedNetworkImage(
+                      imageUrl: p,
+                      fit: BoxFit.contain,
+                      memCacheWidth: widget.isGrid ? 600 : 300,
+                      fadeInDuration: const Duration(milliseconds: 180),
+                      placeholder: (context, url) => _imageErrorPlaceholder(),
+                      errorWidget: (context, url, error) => _imageErrorPlaceholder(),
+                    )
+                  : Image.file(File(p), fit: BoxFit.contain, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+            ),
+          ],
+        ),
+      );
     }
     return Container(
       color: Colors.grey[300],
@@ -539,16 +562,44 @@ class _MediaCardState extends State<MediaCard> {
       final p = paths.first;
       return ClipRRect(
         borderRadius: BorderRadius.circular(0),
-        child: p.startsWith('http')
-            ? CachedNetworkImage(
-                imageUrl: p,
-                fit: BoxFit.cover,
-                memCacheWidth: widget.isGrid ? 600 : 300,
-                fadeInDuration: const Duration(milliseconds: 180),
-                placeholder: (context, url) => _imageErrorPlaceholder(),
-                errorWidget: (context, url, error) => _imageErrorPlaceholder(),
-              )
-            : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Blurred background image (cover)
+            Positioned.fill(
+              child: p.startsWith('http')
+                  ? CachedNetworkImage(
+                      imageUrl: p,
+                      fit: BoxFit.cover,
+                      memCacheWidth: widget.isGrid ? 600 : 300,
+                      fadeInDuration: const Duration(milliseconds: 180),
+                      placeholder: (context, url) => _imageErrorPlaceholder(),
+                      errorWidget: (context, url, error) => _imageErrorPlaceholder(),
+                    )
+                  : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+            ),
+            // Blur effect
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(color: Colors.black.withValues(alpha: 0.1)),
+              ),
+            ),
+            // Sharp foreground image (contain)
+            Center(
+              child: p.startsWith('http')
+                  ? CachedNetworkImage(
+                      imageUrl: p,
+                      fit: BoxFit.contain,
+                      memCacheWidth: widget.isGrid ? 600 : 300,
+                      fadeInDuration: const Duration(milliseconds: 180),
+                      placeholder: (context, url) => _imageErrorPlaceholder(),
+                      errorWidget: (context, url, error) => _imageErrorPlaceholder(),
+                    )
+                  : Image.file(File(p), fit: BoxFit.contain, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+            ),
+          ],
+        ),
       );
     }
     return PageView.builder(
@@ -559,16 +610,44 @@ class _MediaCardState extends State<MediaCard> {
         final p = paths[index];
         return ClipRRect(
           borderRadius: BorderRadius.circular(0),
-          child: p.startsWith('http')
-              ? CachedNetworkImage(
-                  imageUrl: p,
-                  fit: BoxFit.cover,
-                  memCacheWidth: widget.isGrid ? 600 : 300,
-                  fadeInDuration: const Duration(milliseconds: 180),
-                  placeholder: (context, url) => _imageErrorPlaceholder(),
-                  errorWidget: (context, url, error) => _imageErrorPlaceholder(),
-                )
-              : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Blurred background image (cover)
+              Positioned.fill(
+                child: p.startsWith('http')
+                    ? CachedNetworkImage(
+                        imageUrl: p,
+                        fit: BoxFit.cover,
+                        memCacheWidth: widget.isGrid ? 600 : 300,
+                        fadeInDuration: const Duration(milliseconds: 180),
+                        placeholder: (context, url) => _imageErrorPlaceholder(),
+                        errorWidget: (context, url, error) => _imageErrorPlaceholder(),
+                      )
+                    : Image.file(File(p), fit: BoxFit.cover, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+              ),
+              // Blur effect
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(color: Colors.black.withValues(alpha: 0.1)),
+                ),
+              ),
+              // Sharp foreground image (contain)
+              Center(
+                child: p.startsWith('http')
+                    ? CachedNetworkImage(
+                        imageUrl: p,
+                        fit: BoxFit.contain,
+                        memCacheWidth: widget.isGrid ? 600 : 300,
+                        fadeInDuration: const Duration(milliseconds: 180),
+                        placeholder: (context, url) => _imageErrorPlaceholder(),
+                        errorWidget: (context, url, error) => _imageErrorPlaceholder(),
+                      )
+                    : Image.file(File(p), fit: BoxFit.contain, cacheWidth: widget.isGrid ? 600 : 300, errorBuilder: (_, __, ___) => _imageErrorPlaceholder()),
+              ),
+            ],
+          ),
         );
       },
     );
