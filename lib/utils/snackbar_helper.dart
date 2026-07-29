@@ -8,7 +8,7 @@ class SnackbarHelper {
           children: [
             const Icon(Icons.check_circle, color: Colors.green),
             const SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.black))),
           ],
         ),
         backgroundColor: Colors.green.shade50,
@@ -24,7 +24,7 @@ class SnackbarHelper {
           children: [
             const Icon(Icons.error, color: Colors.red),
             const SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.black))),
           ],
         ),
         backgroundColor: Colors.red.shade50,
@@ -40,7 +40,7 @@ class SnackbarHelper {
           children: [
             const Icon(Icons.info, color: Colors.blue),
             const SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.black))),
           ],
         ),
         backgroundColor: Colors.blue.shade50,
@@ -56,7 +56,7 @@ class SnackbarHelper {
           children: [
             const Icon(Icons.warning, color: Colors.orange),
             const SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.black))),
           ],
         ),
         backgroundColor: Colors.orange.shade50,

@@ -37,6 +37,14 @@ class TMDBService {
         final tv = await _tmdb.v3.search.queryTvShows(title);
         if (tv['results'] != null && (tv['results'] as List).isNotEmpty) {
           for (var show in (tv['results'] as List).take(10)) {
+            // Filter for K-Drama: Korean origin country or Korean language
+            if (type == 'K-Drama') {
+              final originCountry = show['origin_country'] as List?;
+              final originalLanguage = show['original_language'] as String?;
+              final isKorean = (originCountry != null && originCountry.contains('KR')) ||
+                              (originalLanguage == 'ko');
+              if (!isKorean) continue;
+            }
             results.add({
               'title': show['name'] ?? show['original_name'],
               'overview': show['overview'],
