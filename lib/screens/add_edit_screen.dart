@@ -51,7 +51,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _episodesCtrl = TextEditingController();
   final List<String> _extraImages = <String>[];
 
-  static const List<String> _types = ['Movies', 'Anime', 'K-Drama', 'Series'];
+  static const List<String> _types = ['Movies', 'Anime', 'Manga', 'K-Drama', 'Series', 'Web Series'];
   static const List<String> _statuses = AppConstants.statuses;
   static const List<String> _recommendOpts = AppConstants.recommendOptions;
 
@@ -334,17 +334,15 @@ class _AddEditScreenState extends State<AddEditScreen> {
       String apiName = '';
 
       // Choose appropriate API based on type
-      if (_type == 'Anime' || _type == 'Anime') {
-        if (_isManga) {
-          final jikanService = JikanService();
-          results = await jikanService.searchManga(title);
-          apiName = 'Jikan (Manga)';
-        } else {
-          final jikanService = JikanService();
-          results = await jikanService.searchAnime(title);
-          apiName = 'Jikan (Anime)';
-        }
-      } else if (_type == 'Series' || _type == 'Series') {
+      if (_type == 'Anime') {
+        final jikanService = JikanService();
+        results = await jikanService.searchAnime(title);
+        apiName = 'Jikan (Anime)';
+      } else if (_type == 'Manga') {
+        final jikanService = JikanService();
+        results = await jikanService.searchManga(title);
+        apiName = 'Jikan (Manga)';
+      } else if (_type == 'Series' || _type == 'Web Series') {
         final tvmazeService = TVMazeService();
         results = await tvmazeService.searchShows(title);
         apiName = 'TVMaze';
@@ -382,12 +380,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   String subtitle = '';
                   String? posterUrl;
 
-                  if (_type == 'Anime') {
+                  if (_type == 'Anime' || _type == 'Manga') {
                     year = result['year']?.toString() ?? 
                            result['releaseDate']?.toString().split('-').first ?? 'N/A';
                     posterUrl = result['posterPath'];
                     subtitle = '${result['type'] ?? 'N/A'} • ${result['status'] ?? 'N/A'}';
-                  } else if (_type == 'Series') {
+                  } else if (_type == 'Series' || _type == 'Web Series') {
                     year = result['releaseDate']?.toString().split('-').first ?? 'N/A';
                     posterUrl = result['posterPath'];
                     subtitle = '${result['network'] ?? 'N/A'} • ${result['language'] ?? 'N/A'}';
@@ -489,14 +487,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
           }
 
           // Fill chapters for manga
-          if (selectedData?['chapters'] != null && _isManga) {
+          if (selectedData?['chapters'] != null && _type == 'Manga') {
             _episodesCtrl.text = selectedData!['chapters'].toString();
           }
 
           // Download and set poster image
           String? imageUrl;
           if (selectedData?['posterPath'] != null && selectedData!['posterPath'].toString().isNotEmpty) {
-            if (_type == 'Anime' || _type == 'Series') {
+            if (_type == 'Anime' || _type == 'Manga' || _type == 'Series' || _type == 'Web Series') {
               // Jikan and TVMaze return full URLs
               imageUrl = selectedData['posterPath'];
             } else {
@@ -746,7 +744,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       if (seasonsStr.isNotEmpty) extra['seasons'] = int.tryParse(seasonsStr) ?? seasonsStr;
       if (episodesStr.isNotEmpty) extra['episodes'] = int.tryParse(episodesStr) ?? episodesStr;
     }
-    if (_type == 'Anime' && _isManga) {
+    if (_type == 'Manga') {
       extra['manga'] = true;
     }
     if (_type == 'Series' && (_webSeriesKind != null && _webSeriesKind!.isNotEmpty)) {
@@ -761,8 +759,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
     if ((_trailerUrl ?? '').trim().isNotEmpty) extra['trailer'] = normalizeUrl(_trailerUrl!);
     if ((_castText ?? '').trim().isNotEmpty) extra['cast'] = _castText!.trim();
     if ((_genresText ?? '').trim().isNotEmpty) extra['genres'] = _genresText!.trim();
-    // Store chapters vs episodes according to manga flag
-    if (_type == 'Anime' && _isManga) {
+    // Store chapters vs episodes according to type
+    if (_type == 'Manga') {
       final ch = _episodesCtrl.text.trim();
       if (ch.isNotEmpty) extra['chapters'] = int.tryParse(ch) ?? ch;
     } else {
@@ -1033,33 +1031,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     onChanged: (v) => setState(() => _type = v!),
                     decoration: _inputDecoration('Type *'),
                   ),
-                  if (_type == 'Anime') ...[
-                    SizedBox(height: gap),
-                    SwitchListTile(
-                      value: _isManga,
-                      title: const Text('Manga'),
-                      subtitle: const Text('Mark as Manga (printed/comic)'),
-                      onChanged: (v) => setState(() => _isManga = v),
-                    ),
-                  ] else if (_type == 'Series') ...[
-                    SizedBox(height: gap),
-                    DropdownButtonFormField<String>(
-                      value: _webSeriesKind,
-                      isExpanded: true,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                      ),
-                      dropdownColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2A2A) : Colors.white,
-                      items: const [
-                        'TV / OTT',
-                        'Regional series',
-                        'Independent',
-                      ].map((e) => DropdownMenuItem<String>(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: (v) => setState(() => _webSeriesKind = v),
-                      decoration: _inputDecoration('Series kind'),
-                    ),
-                  ],
                   // Move Season/Episodes (or Chapter for Manga) above Status
                   if (_type != 'Movies') ...[
                     SizedBox(height: gap + 8),
@@ -1085,7 +1056,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                             style: const TextStyle(fontSize: 14),
                             keyboardType: TextInputType.number,
                             textCapitalization: TextCapitalization.sentences,
-                            decoration: _inputDecoration(_type == 'Anime' && _isManga ? 'Chapter' : 'Episodes'),
+                            decoration: _inputDecoration(_type == 'Manga' ? 'Chapter' : 'Episodes'),
                             enableInteractiveSelection: true,
                             contextMenuBuilder: (context, editableTextState) => AdaptiveTextSelectionToolbar.editableText(
                               editableTextState: editableTextState,
@@ -1104,7 +1075,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     ),
                     items: (() {
                       final list = [..._statuses];
-                      if (_type == 'Anime' && _isManga && !list.contains('Reading')) {
+                      if (_type == 'Manga' && !list.contains('Reading')) {
                         list.add('Reading');
                       }
                       list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
