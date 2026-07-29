@@ -525,25 +525,29 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildStreakInfo(List<MediaItem> items) {
-    // Calculate streak based on watched dates
+    // Calculate streak based on added dates (when items were marked as done)
     final watchedDates = <DateTime>[];
     for (final item in items) {
-      if (item.watchedYear != null) {
-        watchedDates.add(DateTime(item.watchedYear!));
-      }
-      if (item.addedDate != null) {
+      // Only count items that are marked as Done for streak calculation
+      if (item.status == 'Done' && item.addedDate != null) {
         watchedDates.add(item.addedDate!);
       }
     }
 
-    watchedDates.sort((a, b) => b.compareTo(a));
+    // Remove duplicates (same day) and sort descending
+    final uniqueDates = <DateTime>{};
+    for (final date in watchedDates) {
+      uniqueDates.add(DateTime(date.year, date.month, date.day));
+    }
+    final sortedDates = uniqueDates.toList()..sort((a, b) => b.compareTo(a));
 
     int currentStreak = 0;
-    if (watchedDates.isNotEmpty) {
+    if (sortedDates.isNotEmpty) {
       final today = DateTime.now();
-      DateTime? currentDate = today;
+      final todayOnly = DateTime(today.year, today.month, today.day);
+      DateTime? currentDate = todayOnly;
       
-      for (final date in watchedDates) {
+      for (final date in sortedDates) {
         final dateOnly = DateTime(date.year, date.month, date.day);
         final currentOnly = currentDate != null ? DateTime(currentDate.year, currentDate.month, currentDate.day) : null;
         
@@ -631,7 +635,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
           ),
         ],
       ),

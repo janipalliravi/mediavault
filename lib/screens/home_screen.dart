@@ -562,7 +562,9 @@ class _HomeScreenState extends State<HomeScreen>
 
                       decoration: BoxDecoration(
 
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: Theme.of(context).brightness == Brightness.dark 
+                            ? Colors.white.withValues(alpha: 0.1) 
+                            : Colors.white.withValues(alpha: 0.5),
 
                         borderRadius: BorderRadius.circular(20),
 
@@ -594,7 +596,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                             size: 80,
 
-                            color: const Color(0xFF42A5F5),
+                            color: Theme.of(context).colorScheme.primary,
 
                           ),
 
@@ -604,13 +606,13 @@ class _HomeScreenState extends State<HomeScreen>
 
                             data.hasSearch ? 'No Results' : 'Your Library',
 
-                            style: const TextStyle(
+                            style: TextStyle(
 
                               fontSize: 20,
 
                               fontWeight: FontWeight.bold,
 
-                              color: Color(0xFF1976D2),
+                              color: Theme.of(context).colorScheme.primary,
 
                             ),
 
@@ -642,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                           : 'Add movies, anime, K-drama, and series to track your media.',
 
-                      style: const TextStyle(fontSize: 14, color: Colors.black54),
+                      style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
 
                       textAlign: TextAlign.center,
 
@@ -662,9 +664,9 @@ class _HomeScreenState extends State<HomeScreen>
 
                         style: ElevatedButton.styleFrom(
 
-                          backgroundColor: const Color(0xFF42A5F5),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
 
-                          foregroundColor: Colors.white,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
 
                         ),
 
@@ -692,9 +694,9 @@ class _HomeScreenState extends State<HomeScreen>
 
                             style: ElevatedButton.styleFrom(
 
-                              backgroundColor: const Color(0xFF42A5F5),
+                              backgroundColor: Theme.of(context).colorScheme.primary,
 
-                              foregroundColor: Colors.white,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
 
                             ),
 
@@ -1076,7 +1078,7 @@ class _HomeScreenState extends State<HomeScreen>
 
             decoration: BoxDecoration(
 
-              color: Colors.white,
+              color: Theme.of(context).cardTheme.color,
 
               borderRadius: BorderRadius.circular(12),
 
