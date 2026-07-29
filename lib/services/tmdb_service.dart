@@ -45,7 +45,8 @@ class TMDBService {
               final isKorean = (originCountry != null && originCountry.contains('KR')) ||
                               (originalLanguage == 'ko');
               debugPrint('K-Drama filter: ${show['name']} - originCountry: $originCountry, language: $originalLanguage, isKorean: $isKorean');
-              if (!isKorean) continue;
+              // Temporarily disable strict filtering to test
+              // if (!isKorean) continue;
             }
             results.add({
               'title': show['name'] ?? show['original_name'],
