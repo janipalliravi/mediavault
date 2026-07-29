@@ -63,6 +63,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   String? _imagePath;
   bool _isManga = false;
   String? _webSeriesKind; // TV / OTT, Regional series, Independent
+  int? _selectedTmdbId; // Store TMDB ID from auto-fill for image search
 
   String _normalizedType(String t) {
     switch (t.trim()) {
@@ -384,9 +385,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
           results = await tmdbService.searchByTitle(title, type: 'Web Series');
           apiName = 'TMDB';
         } else {
+          // Try TVMaze first, fallback to TMDB if no results
           final tvmazeService = TVMazeService();
           results = await tvmazeService.searchShows(title);
           apiName = 'TVMaze';
+          if (results.isEmpty) {
+            debugPrint('TVMaze returned no results, trying TMDB');
+            final tmdbService = TMDBService();
+            results = await tmdbService.searchByTitle(title, type: 'Series');
+            apiName = 'TMDB';
+          }
         }
       } else if (_type == 'K-Drama') {
         // K-Drama uses TMDB multi-search (no type filter - returns movies, TV shows, etc.)
@@ -487,6 +495,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
       if (selectedData != null && mounted) {
         setState(() {
+          // Store TMDB ID for image search
+          _selectedTmdbId = selectedData?['id'] as int?;
+          debugPrint('Stored TMDB ID for image search: $_selectedTmdbId');
+
           // Fill title if better match found
           if (selectedData?['title'] != null && selectedData!['title'].toString().isNotEmpty) {
             _titleCtrl.text = selectedData['title'];
@@ -626,45 +638,50 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final Set<int> selectedIndices = {};
     bool isLoading = false;
     String? errorMessage;
+    bool hasAutoSearched = false;
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          // Auto-trigger search if title is not empty
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            if (searchController.text.trim().isNotEmpty && searchResults.isEmpty) {
-              setDialogState(() {
-                isLoading = true;
-                errorMessage = null;
-              });
-              final type = _type == 'Movies' ? 'movie' : 'tv';
-              final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
-              try {
-                final results = await imageSearchService.searchMedia(
-                  searchController.text.trim(),
-                  type: type,
-                  year: year,
-                );
-                if (ctx.mounted) {
-                  setDialogState(() {
-                    searchResults = results;
-                    isLoading = false;
-                    if (results.isEmpty) {
-                      errorMessage = 'No images found. Try a different title.';
-                    }
-                  });
-                }
-              } catch (e) {
-                if (ctx.mounted) {
-                  setDialogState(() {
-                    isLoading = false;
-                    errorMessage = 'Error searching images: $e';
-                  });
+          // Auto-trigger search if title is not empty (only once)
+          if (!hasAutoSearched) {
+            hasAutoSearched = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (searchController.text.trim().isNotEmpty && searchResults.isEmpty) {
+                setDialogState(() {
+                  isLoading = true;
+                  errorMessage = null;
+                });
+                final type = _type == 'Movies' ? 'movie' : 'tv';
+                final year = _releaseYearCtrl.text.trim().isEmpty ? null : int.tryParse(_releaseYearCtrl.text.trim());
+                try {
+                  final results = await imageSearchService.searchMedia(
+                    searchController.text.trim(),
+                    type: type,
+                    year: year,
+                    tmdbId: _selectedTmdbId,
+                  );
+                  if (ctx.mounted) {
+                    setDialogState(() {
+                      searchResults = results;
+                      isLoading = false;
+                      if (results.isEmpty) {
+                        errorMessage = 'No images found. Try a different title.';
+                      }
+                    });
+                  }
+                } catch (e) {
+                  if (ctx.mounted) {
+                    setDialogState(() {
+                      isLoading = false;
+                      errorMessage = 'Error searching images: $e';
+                    });
+                  }
                 }
               }
-            }
-          });
+            });
+          }
 
           return AlertDialog(
             title: const Text('Search for Posters (Select Multiple)'),
@@ -694,6 +711,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                               searchController.text.trim(),
                               type: type,
                               year: year,
+                              tmdbId: _selectedTmdbId,
                             );
                             if (mounted) {
                               setDialogState(() {
@@ -730,6 +748,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                           value.trim(),
                           type: type,
                           year: year,
+                          tmdbId: _selectedTmdbId,
                         );
                         if (mounted) {
                           setDialogState(() {

@@ -16,9 +16,52 @@ class ImageSearchService {
 
   /// Search for movies/series by title - fetches from multiple sources with year filter
   /// Returns multiple posters per media item
-  Future<List<ImageSearchResult>> searchMedia(String query, {String type = 'movie', int? year}) async {
+  /// If tmdbId is provided, fetches images directly from that media item
+  Future<List<ImageSearchResult>> searchMedia(String query, {String type = 'movie', int? year, int? tmdbId}) async {
     try {
       final results = <ImageSearchResult>[];
+
+      // If tmdbId is provided, fetch images directly from that media item
+      if (tmdbId != null) {
+        debugPrint('Fetching images for TMDB ID: $tmdbId');
+        try {
+          final imagesEndpoint = type == 'movie' ? '/movie/$tmdbId/images' : '/tv/$tmdbId/images';
+          final imagesUrl = Uri.parse('$_tmdbBaseUrl$imagesEndpoint?api_key=$_tmdbApiKey');
+          final imagesResponse = await http.get(imagesUrl).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => http.Response('Timeout', 408),
+          );
+
+          if (imagesResponse.statusCode == 200) {
+            final imagesData = jsonDecode(imagesResponse.body);
+            final posters = imagesData['posters'] as List?;
+            if (posters != null && posters.isNotEmpty) {
+              // Add up to 10 posters from the specific media item
+              for (var poster in posters.take(10)) {
+                final posterPath = poster['file_path'];
+                if (posterPath != null) {
+                  results.add(ImageSearchResult(
+                    posterPath: posterPath,
+                    title: query,
+                    overview: null,
+                    voteAverage: null,
+                    releaseDate: null,
+                    source: 'tmdb',
+                  ));
+                }
+              }
+            }
+          }
+          // Return results if we got images from the specific ID
+          if (results.isNotEmpty) {
+            debugPrint('Got ${results.length} images from TMDB ID $tmdbId');
+            return results;
+          }
+        } catch (e) {
+          debugPrint('Error fetching images for TMDB ID $tmdbId: $e');
+          // Fall back to regular search if specific ID fails
+        }
+      }
 
       // Search TMDB (2 pages) with year filter if provided
       final tmdbEndpoint = type == 'movie' ? '/search/movie' : '/search/tv';
