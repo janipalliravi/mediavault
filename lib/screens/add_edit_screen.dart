@@ -163,9 +163,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
       if (rating >= 5) return const Color(0xFFFFD700); // bright gold
       if (rating >= 4) return const Color(0xFFE6C200); // gold
       if (rating >= 3) return const Color(0xFFCCAA00); // dark gold/bronze
-      if (rating >= 2) return Colors.grey.shade400; // grey for 2 stars
-      if (rating >= 1) return Colors.grey.shade600; // dark grey for 1 star
-      return Colors.grey.shade700; // darkest for 0 stars
+      if (rating >= 2) return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4); // grey for 2 stars
+      if (rating >= 1) return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6); // dark grey for 1 star
+      return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7); // darkest for 0 stars
     }
     return Row(
       children: List.generate(5, (i) {

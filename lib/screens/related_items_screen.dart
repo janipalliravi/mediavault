@@ -28,21 +28,21 @@ class RelatedItemsScreen extends StatelessWidget {
         ],
       ),
       body: relatedGroups.isEmpty
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.link_off, size: 64, color: Colors.grey),
+                  Icon(Icons.link_off, size: 64, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
                   SizedBox(height: 16),
                   Text(
                     'No related items found',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                    style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Items with the same title but different seasons\nwill appear here',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                 ],
               ),

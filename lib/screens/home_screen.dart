@@ -1048,7 +1048,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                   style: TextStyle(
 
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
 
                     fontSize: 12,
 

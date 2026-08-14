@@ -229,7 +229,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       statusCounts[item.status] = (statusCounts[item.status] ?? 0) + 1;
     }
 
-    final colors = [Colors.green, Colors.orange, Colors.blue, Colors.grey];
+    final colors = [
+      Colors.green,
+      Colors.orange,
+      Theme.of(context).colorScheme.primary,
+      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+    ];
     final statusData = statusCounts.entries.toList();
 
     return Column(
@@ -583,9 +588,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Current Streak',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                   ),
                   Text(
                     '$currentStreak days',

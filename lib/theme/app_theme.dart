@@ -22,36 +22,36 @@ class AppTheme {
       
       return darkBase.copyWith(
         colorScheme: darkColorScheme,
-        scaffoldBackgroundColor: amoled ? Colors.black : const Color(0xFF121212),
-        textTheme: textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+        scaffoldBackgroundColor: amoled ? Colors.black : darkColorScheme.surface,
+        textTheme: textTheme.apply(bodyColor: darkColorScheme.onSurface, displayColor: darkColorScheme.onSurface),
         appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFF1E1E1E),
-          foregroundColor: Colors.white,
+          backgroundColor: darkColorScheme.surface,
+          foregroundColor: darkColorScheme.onSurface,
           elevation: 0,
         ),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: seed,
-          foregroundColor: Colors.white,
+          backgroundColor: darkColorScheme.primary,
+          foregroundColor: darkColorScheme.onPrimary,
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFF2A2A2A),
+          fillColor: darkColorScheme.surfaceContainerHighest,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(ThemeSpacing.radius12),
-            borderSide: const BorderSide(color: Color(0xFF404040)),
+            borderSide: BorderSide(color: darkColorScheme.outline),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          labelStyle: const TextStyle(color: Colors.white70),
-          hintStyle: const TextStyle(color: Colors.white54),
+          labelStyle: TextStyle(color: darkColorScheme.onSurface.withValues(alpha: 0.7)),
+          hintStyle: TextStyle(color: darkColorScheme.onSurface.withValues(alpha: 0.5)),
         ),
         dropdownMenuTheme: DropdownMenuThemeData(
-          textStyle: const TextStyle(color: Colors.white),
+          textStyle: TextStyle(color: darkColorScheme.onSurface),
           menuStyle: MenuStyle(
-            backgroundColor: WidgetStateProperty.all(const Color(0xFF2A2A2A)),
+            backgroundColor: WidgetStateProperty.all(darkColorScheme.surfaceContainerHighest),
           ),
         ),
         cardTheme: CardThemeData(
-          color: const Color(0xFF1E1E1E),
+          color: darkColorScheme.surface,
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThemeSpacing.radius12)),
         ),
@@ -78,33 +78,36 @@ class AppTheme {
       
       return lightBase.copyWith(
         colorScheme: lightColorScheme,
-        scaffoldBackgroundColor: const Color(0xFFEFF2F5),
-        textTheme: textTheme.apply(bodyColor: Colors.black87, displayColor: Colors.black87),
+        scaffoldBackgroundColor: lightColorScheme.surface,
+        textTheme: textTheme.apply(bodyColor: lightColorScheme.onSurface, displayColor: lightColorScheme.onSurface),
         appBarTheme: AppBarTheme(
-          backgroundColor: seed,
-          foregroundColor: Colors.white,
+          backgroundColor: lightColorScheme.primary,
+          foregroundColor: lightColorScheme.onPrimary,
           elevation: 0,
         ),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: seed,
-          foregroundColor: Colors.white,
+          backgroundColor: lightColorScheme.primary,
+          foregroundColor: lightColorScheme.onPrimary,
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(ThemeSpacing.radius12)),
+          fillColor: lightColorScheme.surfaceContainerHighest,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(ThemeSpacing.radius12),
+            borderSide: BorderSide(color: lightColorScheme.outline),
+          ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          labelStyle: const TextStyle(color: Colors.black87),
-          hintStyle: const TextStyle(color: Colors.black54),
+          labelStyle: TextStyle(color: lightColorScheme.onSurface.withValues(alpha: 0.7)),
+          hintStyle: TextStyle(color: lightColorScheme.onSurface.withValues(alpha: 0.5)),
         ),
         dropdownMenuTheme: DropdownMenuThemeData(
-          textStyle: const TextStyle(color: Colors.black87),
+          textStyle: TextStyle(color: lightColorScheme.onSurface),
           menuStyle: MenuStyle(
-            backgroundColor: WidgetStateProperty.all(Colors.white),
+            backgroundColor: WidgetStateProperty.all(lightColorScheme.surfaceContainerHighest),
           ),
         ),
         cardTheme: CardThemeData(
-          color: Colors.white,
+          color: lightColorScheme.surface,
           elevation: 1,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThemeSpacing.radius12)),
         ),

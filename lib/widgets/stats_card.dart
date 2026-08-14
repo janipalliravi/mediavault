@@ -21,7 +21,7 @@ class StatsCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(ThemeSpacing.radius12),
         boxShadow: [
           BoxShadow(
@@ -40,7 +40,10 @@ class StatsCard extends StatelessWidget {
             SizedBox(width: gap / 2),
             Text(
               '$count',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
@@ -49,7 +52,9 @@ class StatsCard extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: theme.textTheme.bodySmall,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 softWrap: false,

@@ -50,8 +50,8 @@ class _MediaCardState extends State<MediaCard> {
 
   Widget _imageErrorPlaceholder() {
     return Container(
-      color: Colors.grey[300],
-      child: const FittedBox(child: Icon(Icons.image_not_supported, size: 40, color: Colors.black26)),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: FittedBox(child: Icon(Icons.image_not_supported, size: 40, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3))),
     );
   }
 
@@ -346,7 +346,7 @@ class _MediaCardState extends State<MediaCard> {
                             ),
                             itemCount: 5,
                             itemSize: 18.0,
-                            unratedColor: Colors.grey.shade500,
+                            unratedColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                           ),
                         const Spacer(),
                       ],
@@ -391,10 +391,10 @@ class _MediaCardState extends State<MediaCard> {
                                     fit: BoxFit.cover,
                                     memCacheWidth: 300,
                                     fadeInDuration: const Duration(milliseconds: 180),
-                                    placeholder: (context, url) => Container(color: Colors.grey[300]),
-                                    errorWidget: (context, url, error) => Container(color: Colors.grey[300]),
+                                    placeholder: (context, url) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                                    errorWidget: (context, url, error) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                                   )
-                                : Image.file(File(p), fit: BoxFit.cover, cacheWidth: 300, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300])),
+                                : Image.file(File(p), fit: BoxFit.cover, cacheWidth: 300, errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest)),
                           ),
                           // Blur effect
                           Positioned.fill(
@@ -411,17 +411,17 @@ class _MediaCardState extends State<MediaCard> {
                                     fit: BoxFit.contain,
                                     memCacheWidth: 300,
                                     fadeInDuration: const Duration(milliseconds: 180),
-                                    placeholder: (context, url) => Container(color: Colors.grey[300]),
-                                    errorWidget: (context, url, error) => Container(color: Colors.grey[300]),
+                                    placeholder: (context, url) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                                    errorWidget: (context, url, error) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                                   )
-                                : Image.file(File(p), fit: BoxFit.contain, cacheWidth: 300, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300])),
+                                : Image.file(File(p), fit: BoxFit.contain, cacheWidth: 300, errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest)),
                           ),
                         ],
                       );
                     }
                     return Container(
-                      color: Colors.grey[300],
-                      child: const FittedBox(child: Icon(Icons.image, size: 40, color: Colors.black26)),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: FittedBox(child: Icon(Icons.image, size: 40, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3))),
                     );
                   })(),
                 ),
@@ -455,7 +455,7 @@ class _MediaCardState extends State<MediaCard> {
                           ),
                           itemCount: 5,
                           itemSize: 14.0,
-                          unratedColor: Colors.grey.shade500,
+                          unratedColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                         ),
                       ),
                     SizedBox(height: gap / 3),
@@ -582,8 +582,8 @@ class _MediaCardState extends State<MediaCard> {
       );
     }
     return Container(
-      color: Colors.grey[300],
-      child: const FittedBox(child: Icon(Icons.image, size: 40, color: Colors.black26)),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: FittedBox(child: Icon(Icons.image, size: 40, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3))),
     );
   }
 
@@ -696,7 +696,7 @@ class _MediaCardState extends State<MediaCard> {
     } else if (normalized > 0) {
       return const Color(0xFFB38F00); // Dim bronze for 1-2
     }
-    return Colors.grey.shade500; // Unrated
+    return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3); // Unrated
   }
   Widget _buildPill(BuildContext context, String text, {double fontSize = 11, EdgeInsets? padding}) {
     // Respect DetailsScreen share override by inheriting Theme; for cards we just use theme colors
